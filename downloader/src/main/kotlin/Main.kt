@@ -33,6 +33,8 @@ fun main(args: Array<String>) {
     while (availableDate.isAfter(Instant.now())) {
         val duration = Duration.between(Instant.now(), availableDate)
         val waitTime = when {
+            duration > Duration.ofHours(1) -> Duration.ofMinutes(30)
+            duration > Duration.ofMinutes(15) -> Duration.ofMinutes(10)
             duration > Duration.ofMinutes(1) -> Duration.ofMinutes(1)
             duration > Duration.ofSeconds(15) -> Duration.ofSeconds(10)
             duration > Duration.ofSeconds(1) -> Duration.ofSeconds(1)

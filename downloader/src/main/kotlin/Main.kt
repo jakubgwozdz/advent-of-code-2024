@@ -6,11 +6,14 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZoneOffset
+import kotlin.io.path.absolute
 
 val localPath: Path = Path.of("local")
 private val logger = LoggerFactory.getLogger("main")
 
 fun main(args: Array<String>) {
+
+    logger.info("Local path is ${localPath.absolute()}")
 
     val cookie = Files.readString(localPath.resolve("cookie")).trim()
     val year = args.firstOrNull { it.matches(Regex("--year=\\d+")) }?.substringAfter("=")?.toInt()

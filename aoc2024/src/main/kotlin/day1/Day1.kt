@@ -1,24 +1,29 @@
 package day1
 
 import readAllText
-import kotlin.math.absoluteValue
+import kotlin.math.abs
 
 fun main() {
-    println(part1(readAllText("local/day1_input.txt")))
-    println(part2(readAllText("local/day1_input.txt")))
+    val input = readAllText("local/day1_input.txt")
+    val (left, right) = parse(input)
+    println(part1(left, right))
+    println(part2(left, right))
 }
 
-fun part1(input: String) = parse(input)
-    .let { (left, right) ->
-        left.sorted().zip(right.sorted()) { left, right -> (right - left).absoluteValue }.sum()
-    }
-
-fun part2(input: String) = parse(input)
-    .let { (left, right) ->
-        val rightCounters = right.groupingBy { it }.eachCount()
-        left.sumOf { l -> l * (rightCounters[l] ?: 0) }
-    }
-
-private fun parse(input: String): Pair<List<Long>, List<Long>> = input.lineSequence().filterNot(String::isBlank)
+fun parse(input: String): Pair<List<Long>, List<Long>> = input.lineSequence().filterNot(String::isBlank)
     .map { it.substringBefore(' ').toLong() to it.substringAfterLast(' ').toLong() }
     .unzip()
+    .let { (left, right) -> left.sorted() to right.sorted() }
+
+fun part1(left: List<Long>, right: List<Long>): Long = left.asSequence()
+    .zip(right.asSequence()) { l, r -> abs(r - l) }
+    .sum()
+
+data class Acc(val index: Int = 0, val sum: Long = 0)
+
+fun part2(left: List<Long>, right: List<Long>): Long = left.fold(Acc()) { acc, l ->
+    var (j, s) = acc
+    while (j < right.size && right[j] < l) j++
+    while (j < right.size && right[j] == l) j++.also { s = s + l }
+    Acc(j, s)
+}.sum

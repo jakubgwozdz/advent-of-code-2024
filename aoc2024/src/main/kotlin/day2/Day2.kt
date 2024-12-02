@@ -8,24 +8,18 @@ fun main() {
     println(part2(data))
 }
 
-fun part1(input: List<List<Long>>) = input.count(Iterable<Long>::isSafe)
+fun part1(input: Sequence<List<Long>>) = input.count { it.asSequence().isSafe() }
 
-fun part2(input: List<List<Long>>) = input.count { line ->
-    line.indices.asSequence()
-        .map(line::skippingOne)
-        .any(Iterable<Long>::isSafe)
+fun part2(input: Sequence<List<Long>>) = input.count { line ->
+    line.indices.asSequence().any { indexToSkip -> line.asSequenceSkipping(indexToSkip).isSafe() }
 }
 
-private fun List<Long>.skippingOne(indexToSkip: Int): Iterable<Long> = Iterable<Long> {
-    object : Iterator<Long> {
-        var i = if (indexToSkip == 0) 1 else 0
-        override fun next(): Long = this@skippingOne[i++].also { if (i == indexToSkip) i++ }
-        override fun hasNext(): Boolean = i < this@skippingOne.size
-    }
+fun <T> List<T>.asSequenceSkipping(indexToSkip: Int) = sequence {
+    forEachIndexed { index, data -> if (index != indexToSkip) yield(data) }
 }
 
-fun Iterable<Long>.isSafe(): Boolean = zipWithNext().all { (a, b) -> (b - a) in (1..3) } ||
-        zipWithNext().all { (a, b) -> (a - b) in (1..3) }
+fun Sequence<Long>.isSafe() = zipWithNext { a, b -> b - a }
+    .run { all { it in (1..3) } || all { -it in (1..3) } }
 
-fun parse(input: String): List<List<Long>> = input.lineSequence().filterNot(String::isBlank)
-    .map { it.split(" ").map { it.toLong() } }.toList()
+fun parse(input: String) = input.lineSequence().filterNot(String::isEmpty)
+    .map { it.split(" ").map { it.toLong() } }

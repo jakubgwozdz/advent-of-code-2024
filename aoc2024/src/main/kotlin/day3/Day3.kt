@@ -3,8 +3,9 @@ package day3
 import readAllText
 
 fun main() {
-    println(part1(readAllText("local/day3_input.txt")))
-    println(part2(readAllText("local/day3_input.txt")))
+    val input = readAllText("local/day3_input.txt")
+    println(part1(input))
+    println(part2(input))
 }
 
 fun part1(input: String) = input.lineSequence().filterNot(String::isBlank)

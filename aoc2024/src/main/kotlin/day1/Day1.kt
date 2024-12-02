@@ -24,6 +24,6 @@ data class Acc(val index: Int = 0, val sum: Long = 0)
 fun part2(left: List<Long>, right: List<Long>): Long = left.fold(Acc()) { acc, l ->
     var (j, s) = acc
     while (j < right.size && right[j] < l) j++
-    while (j < right.size && right[j] == l) j++.also { s = s + l }
+    while (j < right.size && right[j] == l) j++.also { s += l }
     Acc(j, s)
 }.sum

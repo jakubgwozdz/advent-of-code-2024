@@ -8,20 +8,27 @@ fun main() {
     println(part2(input))
 }
 
-val regex1 = Regex("""mul\((\d{1,3}),(\d{1,3})\)""")
+fun mul(a: String, b: String) = a.toLong() * b.toLong()
 
-fun part1(input: String) = input.lineSequence().flatMap { regex1.findAll(it) }
-    .map { it.destructured }
-    .sumOf { (a, b) -> a.toLong() * b.toLong() }
+val regex1 = """mul\((?<a>\d{1,3}),(?<b>\d{1,3})\)""".toRegex()
 
-data class Acc(val enabled: Boolean = true, val sum: Long = 0)
-val regex2 = Regex("""(mul\((\d{1,3}),(\d{1,3})\))|(do\(\))|(don't\(\))""")
+fun part1(input: String) = regex1.findAll(input)
+    .sumOf { r -> mul(r["a"], r["b"]) }
 
-fun part2(input: String) = input.lineSequence().flatMap { regex2.findAll(it) }.fold(Acc()) { acc, matchResult ->
-    when {
-        matchResult.value == "do()" -> acc.copy(enabled = true)
-        matchResult.value == "don't()" -> acc.copy(enabled = false)
-        !acc.enabled -> acc
-        else -> matchResult.destructured.let { (_, a, b) -> acc.copy(sum = acc.sum + a.toLong() * b.toLong()) }
+data class Acc(val enabled: Boolean = true, val sum: Long = 0) {
+    fun enabled() = copy(enabled = true)
+    fun disabled() = copy(enabled = false)
+    fun withMul(a: String, b: String) = if (enabled) Acc(sum = sum + mul(a, b)) else this
+}
+
+val regex2 = """(mul\((?<a>\d{1,3}),(?<b>\d{1,3})\))|(do\(\))|(don't\(\))""".toRegex()
+
+fun part2(input: String) = regex2.findAll(input).fold(Acc()) { acc, r ->
+    when (r.value) {
+        "do()" -> acc.enabled()
+        "don't()" -> acc.disabled()
+        else -> acc.withMul(r["a"], r["b"])
     }
 }.sum
+
+private operator fun MatchResult.get(name: String) = groups[name]?.value ?: ""

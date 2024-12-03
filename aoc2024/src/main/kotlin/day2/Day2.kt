@@ -15,17 +15,15 @@ fun part1(input: Sequence<List<Long>>) = input.count { it.asSequence().isSafe() 
 
 fun part2(input: Sequence<List<Long>>) = input.count { it.maxOneError() }
 
-fun List<Long>.maxOneError() = asSequence().maxOneErrorOneWay() || reversed().asSequence().maxOneErrorOneWay()
+fun List<Long>.maxOneError() = asSequence().maxOneErrorOneWay() || asReversed().asSequence().maxOneErrorOneWay()
 
-data class Acc(val prev: Long = 0, val sign: Int = 0, val errors: Int = 0)
+data class Acc(val prev: Long, val sign: Int = 0, val errors: Int = 0)
 
-fun Sequence<Long>.maxOneErrorOneWay() = runningFold(null as Acc?) { acc, curr ->
-    acc?.let {
-        val delta = curr - it.prev
-        if (delta == 0L || abs(delta) > 3 || delta.sign == -it.sign) acc.copy(errors = acc.errors + 1)
-        else it.copy(prev = curr, sign = delta.sign)
-    } ?: Acc(curr)
-}.mapNotNull { it?.errors }.none { it >= 2 }
+fun Sequence<Long>.maxOneErrorOneWay() = drop(1).runningFold(Acc(first())) { acc, curr ->
+    val delta = curr - acc.prev
+    if (delta == 0L || abs(delta) > 3 || delta.sign == -acc.sign) acc.copy(errors = acc.errors + 1)
+    else acc.copy(prev = curr, sign = delta.sign)
+}.none { it.errors >= 2 }
 
 fun List<Long>.maxOneErrorQuadratic(): Boolean =
     indices.any { indexToSkip -> asSequenceSkipping(indexToSkip).isSafe() }

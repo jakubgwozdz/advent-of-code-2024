@@ -36,11 +36,11 @@ fun main(args: Array<String>) {
     while (availableDate.isAfter(Instant.now())) {
         val duration = Duration.between(Instant.now(), availableDate)
         val waitTime = when {
-            duration > ofHours(1) -> ofMinutes(30).plusMillis(duration.toMillis() % (1000 * 60 * 30) - 1)
-            duration > ofMinutes(15) -> ofMinutes(10).plusMillis(duration.toMillis() % (1000 * 60) - 1)
-            duration > ofMinutes(1) -> ofMinutes(1).plusMillis(duration.toMillis() % (1000 * 60) - 1)
-            duration > ofSeconds(15) -> ofSeconds(10).plusMillis(duration.toMillis() % 1000 - 1)
-            duration > ofSeconds(1) -> ofSeconds(1).plusMillis(duration.toMillis() % 1000 - 1)
+            duration > ofHours(1) -> ofMinutes(30).plusMinutes(duration.toMinutesPart() % 30L)
+            duration > ofMinutes(15) -> ofMinutes(10)
+            duration > ofMinutes(1) -> ofMinutes(1)
+            duration > ofSeconds(15) -> ofSeconds(10)
+            duration > ofSeconds(1) -> ofSeconds(1)
             else -> duration.plusMillis(100)
         }
         logger.error("Input will be available in ${duration.readable()}, waiting...")

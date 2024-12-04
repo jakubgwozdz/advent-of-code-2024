@@ -7,38 +7,30 @@ fun main() {
     println(part2(readAllText("local/day4_input.txt")))
 }
 
+typealias Grid = List<String>
 typealias Pos = Pair<Int, Int>
-private operator fun Pos.plus(d: Pair<Int, Int>) = Pos(first + d.first, second + d.second)
-private operator fun Pos.minus(d: Pair<Int, Int>) = Pos(first - d.first, second - d.second)
+typealias Move = Pair<Int, Int>
 
-fun part1(input: String) = input.lines().filterNot(String::isBlank).let { map ->
-    val g = map.flatMapIndexed { r: Int, line: String -> line.mapIndexed { c, ch -> Pos(r, c) to ch } }
-        .groupBy { (_, ch) -> ch }.mapValues { (k, v) -> v.map { (p, _) -> p }.toSet() }
-    val x = g['X'].orEmpty()
-    val m = g['M'].orEmpty()
-    val a = g['A'].orEmpty()
-    val s = g['S'].orEmpty()
-    sequence {
-        (-1..1).forEach { dr -> (-1..1).forEach { dc -> yield(dr to dc) } }
-    }.sumOf { d ->
-        x.count { px ->
-            val pm = px + d
-            val pa = pm + d
-            val ps = pa + d
-            pm in m && pa in a && ps in s
-        }
+private operator fun Pos.plus(d: Move) = Pos(first + d.first, second + d.second)
+private operator fun Pos.minus(d: Move) = Pos(first - d.first, second - d.second)
+private operator fun Int.times(m: Move) = Move(this * m.first, this * m.second)
+
+fun Grid.findAll(ch: Char): List<Pos> = flatMapIndexed { r, line ->
+    line.indices.filter { line[it] == ch }.map { c -> Pos(r, c) }
+}
+
+operator fun Grid.get(p: Pos) = getOrNull(p.first)?.getOrNull(p.second)
+
+fun part1(input: String) = input.lines().let { grid ->
+    val moves: List<Move> = (-1..1).flatMap { dr -> (-1..1).map { dc -> dr to dc } }
+    grid.findAll('X').sumOf { p ->
+        moves.count { d -> grid[p + d] == 'M' && grid[p + 2 * d] == 'A' && grid[p + 3 * d] == 'S' }
     }
 }
 
-fun part2(input: String) = input.lines().filterNot(String::isBlank).let { map ->
-    val g = map.flatMapIndexed { r: Int, line: String -> line.mapIndexed { c, ch -> Pos(r, c) to ch } }
-        .groupBy { (_, ch) -> ch }.mapValues { (k, v) -> v.map { (p, _) -> p }.toSet() }
-    val m = g['M'].orEmpty()
-    val a = g['A'].orEmpty()
-    val s = g['S'].orEmpty()
-    a.count { pa ->
-        listOf(-1 to -1, -1 to 1, 1 to -1, 1 to 1).count { d ->
-            (pa + d) in s && (pa - d) in m
-        } == 2
+fun part2(input: String) = input.lines().let { grid ->
+    val moves: List<Move> = listOf(-1 to -1, -1 to 1, 1 to -1, 1 to 1)
+    grid.findAll('A').count { p ->
+        moves.count { d -> grid[p - d] == 'M' && grid[p + d] == 'S' } == 2
     }
 }

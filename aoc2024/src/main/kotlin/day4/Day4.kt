@@ -3,34 +3,36 @@ package day4
 import readAllText
 
 fun main() {
-    println(part1(readAllText("local/day4_input.txt")))
-    println(part2(readAllText("local/day4_input.txt")))
+    val input = readAllText("local/day4_input.txt").lines()
+    println(part1(input))
+    println(part2(input))
 }
 
-typealias Grid = List<String>
-typealias Pos = Pair<Int, Int>
+fun part1(grid: Grid) = grid.findAll('X')
+    .flatMap { (horizontal + vertical + diagonals).map { m -> it to m } }
+    .mapNotNull { (p, m) -> (p + m).takeIf { grid[it] == 'M' }?.let { it to m } }
+    .mapNotNull { (p, m) -> (p + m).takeIf { grid[it] == 'A' }?.let { it to m } }
+    .mapNotNull { (p, m) -> (p + m).takeIf { grid[it] == 'S' }?.let { it to m } }
+    .count()
+
+fun part2(grid: Grid): Int = grid.findAll('A').count { p ->
+    diagonals.count { m -> grid[p - m] == 'M' && grid[p + m] == 'S' } == 2
+}
+
 typealias Move = Pair<Int, Int>
 
-private operator fun Pos.plus(d: Move) = Pos(first + d.first, second + d.second)
-private operator fun Pos.minus(d: Move) = Pos(first - d.first, second - d.second)
-private operator fun Int.times(m: Move) = Move(this * m.first, this * m.second)
+val diagonals: Set<Move> = setOf(-1 to -1, -1 to 1, 1 to -1, 1 to 1)
+val vertical: Set<Move> = setOf(-1 to 0, 1 to 0)
+val horizontal: Set<Move> = setOf(0 to -1, 0 to 1)
 
-fun Grid.findAll(ch: Char): List<Pos> = flatMapIndexed { r, line ->
-    line.indices.filter { line[it] == ch }.map { c -> Pos(r, c) }
-}
+typealias Pos = Pair<Int, Int>
+
+operator fun Pos.plus(d: Move) = Pos(first + d.first, second + d.second)
+operator fun Pos.minus(d: Move) = Pos(first - d.first, second - d.second)
+
+typealias Grid = List<String>
 
 operator fun Grid.get(p: Pos) = getOrNull(p.first)?.getOrNull(p.second)
-
-fun part1(input: String) = input.lines().let { grid ->
-    val moves: List<Move> = (-1..1).flatMap { dr -> (-1..1).map { dc -> dr to dc } }
-    grid.findAll('X').sumOf { p ->
-        moves.count { d -> grid[p + d] == 'M' && grid[p + 2 * d] == 'A' && grid[p + 3 * d] == 'S' }
-    }
-}
-
-fun part2(input: String) = input.lines().let { grid ->
-    val moves: List<Move> = listOf(-1 to -1, -1 to 1, 1 to -1, 1 to 1)
-    grid.findAll('A').count { p ->
-        moves.count { d -> grid[p - d] == 'M' && grid[p + d] == 'S' } == 2
-    }
+fun Grid.findAll(ch: Char): Sequence<Pos> = asSequence().flatMapIndexed { r, line ->
+    line.indices.filter { line[it] == ch }.map { c -> Pos(r, c) }
 }

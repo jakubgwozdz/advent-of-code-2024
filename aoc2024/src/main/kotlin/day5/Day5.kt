@@ -2,71 +2,60 @@ package day5
 
 import readAllText
 
-val test = """
-    47|53
-    97|13
-    97|61
-    97|47
-    75|29
-    61|13
-    75|53
-    29|13
-    97|29
-    53|29
-    61|53
-    97|53
-    61|29
-    47|13
-    75|47
-    97|75
-    47|61
-    75|61
-    47|29
-    75|13
-    53|13
-
-    75,47,61,53,29
-    97,61,53,29,13
-    75,29,13
-    75,97,47,61,53
-    61,13,29
-    97,13,75,29,47
-""".trimIndent()
-
 fun main() {
     val input = readAllText("local/day5_input.txt")
-    println(part1(test))
-    println(part1(input))
-    println(part2(input))
+    val parsed = parse(input)
+    println(part1(parsed))
+    println(part2(parsed))
 }
 
-fun part1(input: String) = input.lines().let {
-    val s = it.indexOfFirst(String::isBlank)
-    it.take(s).filterNot(String::isBlank).map { it.split("|") } to
-            it.drop(s).filterNot(String::isBlank).map { it.split(",") }
-}.let { (ordering, updates) ->
-    val befores = mutableMapOf<String, MutableSet<String>>()
+data class Input(
+    val ordering: List<List<String>>,
+    val updates: List<List<String>>,
+)
+
+// 5248
+fun part1(input: Input) = input.let { (ordering, updates) ->
+    val afters = afters(ordering)
+    updates.filter { isCorrect(it, afters) }
+        .sumOf { it[it.size / 2].toLong() }
+}
+
+// 4507
+fun part2(input: Input) = input.let { (ordering, updates) ->
+    val afters = afters(ordering)
+    updates.filterNot { isCorrect(it, afters) }
+        .map { it.sortedWith(Day5Comparator(afters)) }
+        .sumOf { it[it.size / 2].toLong() }
+}
+
+private fun parse(input: String) = input.lines().let { lines ->
+    val s = lines.indexOfFirst(String::isBlank)
+    Input(
+        lines.take(s).map { it.split("|") },
+        lines.drop(s+1).dropLastWhile(String::isBlank).map { it.split(",") },
+    )
+}
+
+private fun afters(ordering: List<List<String>>): Map<String, Set<String>> {
     val afters = mutableMapOf<String, MutableSet<String>>()
-
-    ordering.forEach { (x, y) ->
-        befores.getOrPut(y) { mutableSetOf() }.run {
-            add(x)
-            addAll(befores[x].orEmpty())
-        }
-        afters.getOrPut(x) { mutableSetOf() }.run {
-            add(y)
-            addAll(afters[y].orEmpty())
-        }
-    }
-
-    updates.filter {
-        it.indices.all { i ->
-            val a = afters[it[i]].orEmpty()
-            val b = befores[it[i]].orEmpty()
-            it.take(i).none { x -> x in a } && it.drop(i + 1).none { y -> y in b }
-        }
-    }.sumOf { it[it.size / 2].toLong() }
+    ordering.forEach { (x, y) -> afters.getOrPut(x) { mutableSetOf() }.add(y) }
+    return afters
 }
 
-fun part2(input: String) = input.lineSequence().filterNot(String::isBlank)
-    .count()
+private fun isCorrect(
+    update: List<String>,
+    afters: Map<String, Set<String>>
+) = update.indices.all { i ->
+    val s = update[i]
+    val a = afters[s].orEmpty()
+    update.take(i).none { x -> x in a } && update.drop(i + 1).none { y -> s in afters[y].orEmpty() }
+}
+
+class Day5Comparator(val afters: Map<String, Set<String>>):Comparator<String> {
+    override fun compare(x: String?, y: String?): Int = when {
+        y in afters[x].orEmpty() -> -1
+        x in afters[y].orEmpty() -> 1
+        else -> 0
+    }
+}

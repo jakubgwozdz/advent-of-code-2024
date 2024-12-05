@@ -9,6 +9,8 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZoneOffset
+import java.time.temporal.ChronoUnit
+import java.util.concurrent.TimeUnit
 import kotlin.io.path.absolute
 
 val localPath: Path = Path.of("local")
@@ -33,18 +35,15 @@ fun main(args: Array<String>) {
         logger.info("Input is available for ${Duration.between(availableDate, Instant.now()).readable()}")
     }
 
+    var lastPrint = false
     while (availableDate.isAfter(Instant.now())) {
-        val duration = Duration.between(Instant.now(), availableDate)
-        val waitTime = when {
-            duration > ofHours(1) -> ofMinutes(30).plusMinutes(duration.toMinutesPart() % 30L)
-            duration > ofMinutes(15) -> ofMinutes(10)
-            duration > ofMinutes(1) -> ofMinutes(1)
-            duration > ofSeconds(15) -> ofSeconds(10)
-            duration > ofSeconds(1) -> ofSeconds(1)
-            else -> duration.plusMillis(100)
+        val duration = Duration.between(Instant.now(), availableDate).truncatedTo(ChronoUnit.SECONDS).plusSeconds(1)
+        val parts = listOf(duration.toHoursPart(), duration.toMinutesPart(), duration.toSecondsPart())
+        if (!lastPrint || parts.count { it == 0 } == 2) {
+            logger.info("Input will be available in ${duration.readable()}, waiting...")
+            lastPrint = true
         }
-        logger.error("Input will be available in ${duration.readable()}, waiting...")
-        Thread.sleep(waitTime.toMillis())
+        Thread.sleep(1000)
     }
 
     val input = if (Files.exists(inputPath(day))) Files.readString(inputPath(day))

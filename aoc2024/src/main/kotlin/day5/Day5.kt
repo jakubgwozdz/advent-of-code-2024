@@ -10,40 +10,33 @@ fun main() {
 }
 
 data class Input(
-    val ordering: List<Pair<String, String>>,
-    val updates: List<List<String>>,
+    val ordering: Set<Pair<Long, Long>>,
+    val updates: List<List<Long>>,
 )
 
-fun part1(input: Input): Long {
-    val comparator = Day5Comparator(input.ordering)
-    val correct = input.updates
-        .filter { it == it.sortedWith(comparator) }
-    return correct.sumOf { it[it.size / 2].toLong() }
-}
+fun part1(input: Input) = input.updates
+    .filter { it == it.sortedWith(comparator(input.ordering)) }
+    .sumOf { it.middle() }
 
-fun part2(input: Input): Long {
-    val comparator = Day5Comparator(input.ordering)
-    val incorrectSorted = input.updates
-        .mapNotNull { it.sortedWith(comparator).takeIf { sorted -> sorted != it } }
-    return incorrectSorted.sumOf { it[it.size / 2].toLong() }
-}
+fun part2(input: Input) = input.updates
+    .mapNotNull { it.sortedWith(comparator(input.ordering)).takeIf { sorted -> sorted != it } }
+    .sumOf { it.middle() }
 
-class Day5Comparator(private val afters: Map<String, Set<String>>) : Comparator<String> {
-    constructor(ordering: List<Pair<String, String>>) : this(buildMap<String, MutableSet<String>> {
-        ordering.forEach { (x, y) -> getOrPut(x) { mutableSetOf() }.add(y) }
-    })
-
-    override fun compare(x: String?, y: String?): Int = when {
-        y in afters[x].orEmpty() -> -1
-        x in afters[y].orEmpty() -> 1
+fun <T> comparator(ordering: Set<Pair<T, T>>) = Comparator<T> { o1, o2 ->
+    when {
+        (o1 to o2) in ordering -> -1
+        (o2 to o1) in ordering -> 1
         else -> 0
     }
 }
 
-private fun parse(input: String) = input.lines().let { lines ->
+fun <T> List<T>.middle() = this[size / 2]
+
+fun parse(input: String): Input {
+    val lines = input.lines()
     val s = lines.indexOfFirst(String::isBlank)
-    Input(
-        lines.take(s).map { it.split("|").let { (a, b) -> a to b } },
-        lines.drop(s + 1).dropLastWhile(String::isBlank).map { it.split(",") },
+    return Input(
+        lines.take(s).map { it.split("|").let { (a, b) -> a.toLong() to b.toLong() } }.toSet(),
+        lines.drop(s + 1).dropLastWhile(String::isBlank).map { it.split(",").map(String::toLong) },
     )
 }

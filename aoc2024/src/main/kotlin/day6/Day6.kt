@@ -2,6 +2,11 @@ package day6
 
 import readAllText
 import grid.*
+import kotlinx.coroutines.flow.asFlow
+import kotlinx.coroutines.flow.count
+import kotlinx.coroutines.flow.flattenMerge
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.runBlocking
 
 fun main() {
     val input = readAllText("local/day6_input.txt").lines()
@@ -17,7 +22,13 @@ fun part1(grid: Grid): Int {
 fun part2(grid: Grid): Int {
     val start = grid.findAll('^').single()
     return buildSet { patrol(grid, start) { if (it != start) add(it) } }
-        .count { extra -> patrol(grid, start, extra) }
+        .run {
+            runBlocking {
+                map { extra -> flow { if (patrol(grid, start, extra)) emit(Unit) } }
+                    .asFlow().flattenMerge()
+                    .count()
+            }
+        }
 }
 
 // returns true if cycle is found, false if exits the grid

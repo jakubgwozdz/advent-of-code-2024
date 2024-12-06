@@ -11,44 +11,33 @@ fun main() {
 
 fun part1(grid: Grid): Int {
     val start = grid.indexOf('^')
-    val cache = mutableMapOf<Pair<Dir, Pos>, Pos>()
-    return buildSet { patrol(grid, start, cache) { add(it) } }.size
+    return buildSet { patrol(grid, start) { add(it) } }.size
 }
 
 fun part2(grid: Grid): Int {
     val start = grid.indexOf('^')
-    val cache = mutableMapOf<Pair<Dir, Pos>, Pos>()
-    val valid = buildSet { patrol(grid, start, cache) { if (it != start) add(it) } }
-    return valid.count { extra -> patrol(grid, start, cache, extra) }
+    val valid = buildSet { patrol(grid, start) { if (it != start) add(it) } }
+    return valid.count { extra -> patrol(grid, start, extra) }
 }
 
 // returns true if cycle is found, false if exits the grid
 private fun patrol(
     grid: Grid, start: Pos,
-    cache: MutableMap<Pair<Dir, Pos>, Pos>,
     extra: Pos? = null,
     op: (Pos) -> Unit = {}
 ): Boolean {
     var pos = start
     var dir = Dir.U
     val turns = mutableSetOf<Pair<Dir, Pos>>()
-    val temp = mutableSetOf<Pos>()
     while (true) {
         var prev: Pos
         do {
             prev = pos
             op(pos)
-            temp += pos
-            val cached = cache[dir to pos]?.takeIf { extra != null && !commonLine(pos, extra) }
-            if (cached != null) {
-                prev = cached
-                pos = prev + dir
-            } else pos += dir
+            pos += dir
         } while (pos in grid && grid[pos] != '#' && pos != extra)
         if (pos !in grid) return false
         pos = prev
-        if (extra == null) temp.forEach { cache[dir to it] = pos }
-        temp.clear()
         val turn = dir to pos
         if (dir == Dir.U && turn in turns) return true
         if (dir == Dir.U) turns += turn

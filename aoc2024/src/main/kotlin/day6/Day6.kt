@@ -16,28 +16,42 @@ fun part1(grid: Grid): Int {
 
 fun part2(grid: Grid): Int {
     val start = grid.indexOf('^')
-    val valid = buildSet { patrol(grid, start) { if (it != start) add(it) } }
-    return valid.count { extra -> patrol(grid, start, extra) }
+    val cache = mutableMapOf<Pair<Dir, Pos>, Pos>()
+    val valid = buildSet { patrol(grid, start, cache) { if (it != start) add(it) } }
+    return valid.count { extra -> patrol(grid, start, cache, extra) }
 }
 
 // returns true if cycle is found, false if exits the grid
 private fun patrol(
     grid: Grid, start: Pos,
+    cache: MutableMap<Pair<Dir, Pos>, Pos>? = null,
     extra: Pos? = null,
     op: (Pos) -> Unit = {}
 ): Boolean {
     var pos = start
     var dir = Dir.U
     val turns = mutableSetOf<Pair<Dir, Pos>>()
+    val cacheWritable = cache != null && extra == null // written only in the "no extra obstacle" mode
+    val cacheReadable = cache != null && extra != null // read only in the "extra obstacle" mode
+    val toBeCached = if (cacheWritable) mutableSetOf<Pos>() else null
     while (true) {
         var prev: Pos
         do {
             prev = pos
             op(pos)
-            pos += dir
+            if (cacheWritable) toBeCached!! += pos
+            val cached = if (cacheReadable && !commonLine(pos, extra)) cache!![dir to pos] else null
+            if (cached != null) {
+                prev = cached
+                pos = prev + dir
+            } else pos += dir
         } while (pos in grid && grid[pos] != '#' && pos != extra)
         if (pos !in grid) return false
         pos = prev
+        if (cacheWritable) {
+            toBeCached!!.forEach { cache!![dir to it] = pos }
+            toBeCached.clear()
+        }
         val turn = dir to pos
         if (dir == Dir.U && turn in turns) return true
         if (dir == Dir.U) turns += turn

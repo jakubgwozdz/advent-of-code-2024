@@ -15,7 +15,7 @@ operator fun Pos.minus(d: Move) = Pos(first - d.first, second - d.second)
 typealias Grid = List<String>
 
 operator fun Grid.get(p: Pos) = getOrNull(p.first)?.getOrNull(p.second)
-operator fun Grid.contains(p: Pos) = this[p] != null
+operator fun Grid.contains(p: Pos) = p.first in indices && p.second in get(p.first).indices
 
 fun Grid.findAll(ch: Char): Sequence<Pos> = asSequence().flatMapIndexed { r, line ->
     line.indices.filter { line[it] == ch }.map { c -> Pos(r, c) }

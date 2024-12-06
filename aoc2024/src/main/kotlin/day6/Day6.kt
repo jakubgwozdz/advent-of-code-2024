@@ -11,33 +11,30 @@ fun main() {
 
 fun part1(grid: Grid): Int {
     val start = grid.findAll('^').single()
-    return patrol(grid, start).visited.size
+    return buildSet { patrol(grid, start) { add(it) } }.size
 }
 
 fun part2(grid: Grid): Int {
     val start = grid.findAll('^').single()
-    return patrol(grid, start).visited.filter { grid[it] == '.' }
-        .count { extra -> patrol(grid, start, extra).last in grid }
+    return buildSet { patrol(grid, start) { if (it != start) add(it) } }
+        .count { extra -> patrol(grid, start, extra) }
 }
 
-/**
- * returns a pair of all visited positions and the last one
- */
-private fun patrol(grid: Grid, start: Pos, extra: Pos? = null): Patrol {
-    var guard = start to Dir.U
-    val visited = mutableSetOf<Pair<Pos, Dir>>()
-    while (guard.first in grid && guard !in visited) {
-        visited += guard
-        val (pos, dir) = guard
+// returns true if cycle is found, false if exits the grid
+private fun patrol(grid: Grid, start: Pos, extra: Pos? = null, op: (Pos) -> Unit = {}): Boolean {
+    var pos = start
+    var dir = Dir.U
+    val turns = mutableSetOf<Pair<Pos, Pos>>()
+    while (true) {
+        op(pos)
         val forward = pos + dir
-        guard = if (grid[forward] != '#' && forward != extra) forward to dir
-        else pos to dir.turnRight()
+        if (forward !in grid) return false
+        if (grid[forward] != '#' && forward != extra) pos = forward
+        else {
+            val turn = pos to forward
+            if (turn in turns) return true
+            turns += turn
+            dir = dir.turnRight()
+        }
     }
-    return visited.map { it.first }.toSet() to guard.first
 }
-
-typealias Patrol = Pair<Set<Pos>, Pos>
-
-val Patrol.visited get() = first
-val Patrol.last get() = second
-

@@ -9,34 +9,35 @@ fun main() {
     println(part2(input).also { check(it == 1796) })
 }
 
-fun part1(grid: Grid): Int = visited(grid).size
-
-fun part2(grid: Grid): Int = visited(grid).filter { grid[it] == '.' }.count { extra ->
+fun part1(grid: Grid): Int {
     val start = grid.findAll('^').single()
+    return patrol(grid, start).visited.size
+}
+
+fun part2(grid: Grid): Int {
+    val start = grid.findAll('^').single()
+    return patrol(grid, start).visited.filter { grid[it] == '.' }
+        .count { extra -> patrol(grid, start, extra).last in grid }
+}
+
+/**
+ * returns a pair of all visited positions and the last one
+ */
+private fun patrol(grid: Grid, start: Pos, extra: Pos? = null): Patrol {
     var guard = start to Dir.U
     val visited = mutableSetOf<Pair<Pos, Dir>>()
-    while (guard.first in grid) {
+    while (guard.first in grid && guard !in visited) {
         visited += guard
-        guard = step(guard) { grid[it] != '#' && it != extra }
-        if (guard in visited) return@count true
+        val (pos, dir) = guard
+        val forward = pos + dir
+        guard = if (grid[forward] != '#' && forward != extra) forward to dir
+        else pos to dir.turnRight()
     }
-    false
+    return visited.map { it.first }.toSet() to guard.first
 }
 
-fun step(guard: Pair<Pos, Dir>, availableOp: (Pos) -> Boolean): Pair<Pos, Dir> {
-    val (pos, dir) = guard
-    val forward = pos + dir
-    return if (availableOp(forward)) forward to dir
-    else pos to dir.turnRight()
-}
+typealias Patrol = Pair<Set<Pos>, Pos>
 
-private fun visited(grid: Grid): Set<Pos> {
-    val start = grid.findAll('^').single()
-    var guard = start to Dir.U
-    return buildSet {
-        while (guard.first in grid) {
-            add(guard.first)
-            guard = step(guard) { grid[it] != '#' }
-        }
-    }
-}
+val Patrol.visited get() = first
+val Patrol.last get() = second
+

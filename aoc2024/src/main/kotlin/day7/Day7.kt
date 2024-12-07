@@ -14,7 +14,7 @@ val part1ops = listOf<(Long, Long) -> Long>(
     Long::times,
 )
 
-fun part1(input: Sequence<Input>) = input.sumOf { calculate(it, part1ops) }
+fun part1(inputs: Sequence<Input>) = inputs.sumOf { if (testAllCases(it, part1ops)) it.result else 0 }
 
 val part2ops = listOf<(Long, Long) -> Long>(
     Long::plus,
@@ -22,30 +22,24 @@ val part2ops = listOf<(Long, Long) -> Long>(
     Long::concat,
 )
 
-fun part2(input: Sequence<Input>) = input.sumOf { calculate(it, part2ops) }
+fun part2(inputs: Sequence<Input>) = inputs.sumOf { if (testAllCases(it, part2ops)) it.result else 0 }
 
-private fun calculate(
-    input: Input,
-    ops: List<(Long, Long) -> Long>,
-): Long = if (isPossible(input.params, input.result, ops)) input.result else 0
-
-
-fun isPossible(params: List<Long>, result: Long, ops: List<(Long, Long) -> Long>): Boolean {
-    val total = params.indices.fold(1) { acc, _ -> acc * ops.size } // params.size^(ops.size)
+fun testAllCases(input: Input, ops: List<(Long, Long) -> Long>): Boolean {
+    val total = input.params.indices.fold(1) { acc, _ -> acc * ops.size } // params.size^(ops.size)
     repeat(total) {
-        val x = testCase(it, params, result, ops)
+        val x = testCase(it, input, ops)
         if (x) return true
     }
     return false
 }
 
-private fun testCase(case: Int, params: List<Long>, result: Long, ops: List<(Long, Long) -> Long>): Boolean {
+private fun testCase(case: Int, input: Input, ops: List<(Long, Long) -> Long>): Boolean {
     var str = case
-    val x = params.reduce { acc, l ->
+    val x = input.params.reduce { acc, l ->
         ops[str % ops.size](acc, l).also { str /= ops.size }
-            .also { if (it > result) return false } // todo: make it cutting of the whole branch
+            .also { if (it > input.result) return false } // todo: make it cutting of the whole branch
     }
-    return x == result
+    return x == input.result
 }
 
 private fun Long.concat(other: Long): Long {

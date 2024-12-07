@@ -9,47 +9,35 @@ fun main() {
     go(92612386119138) { part2(input) }
 }
 
-val part1ops = listOf<(Long, Long) -> Long>(
-    Long::plus,
-    Long::times,
-)
+val part1ops = { operand: Long, result: Long ->
+    buildList {
+        if (result > operand) add(result - operand)
+        if (result % operand == 0L) add(result / operand)
+    }
+}
 
 fun part1(inputs: Sequence<Input>) = inputs.sumOf { if (testAllCases(it, part1ops)) it.result else 0 }
 
-val part2ops = listOf<(Long, Long) -> Long>(
-    Long::plus,
-    Long::times,
-    Long::concat,
-)
+val part2ops = { operand: Long, result: Long ->
+    buildList {
+        if (result > operand) add(result - operand)
+        if (result % operand == 0L) add(result / operand)
+        val r = result.toString()
+        val o = operand.toString()
+        if (r.endsWith(o) && r.length > o.length) add(r.dropLast(o.length).toLong())
+    }
+}
 
 fun part2(inputs: Sequence<Input>) = inputs.sumOf { if (testAllCases(it, part2ops)) it.result else 0 }
 
-fun testAllCases(input: Input, ops: List<(Long, Long) -> Long>): Boolean {
-    val total = input.params.indices.fold(1) { acc, _ -> acc * ops.size } // params.size^(ops.size)
-    repeat(total) {
-        val x = testCase(it, input, ops)
-        if (x) return true
+fun testAllCases(input: Input, ops: (Long, Long) -> List<Long>): Boolean {
+    val todo = mutableListOf(input.params.lastIndex to input.result)
+    while (todo.isNotEmpty()) {
+        val (pos, result) = todo.removeLast()
+        if (pos == 0 && result == input.params[pos]) return true
+        if (pos > 0) ops(input.params[pos], result).forEach { todo.add(pos - 1 to it) }
     }
     return false
-}
-
-private fun testCase(case: Int, input: Input, ops: List<(Long, Long) -> Long>): Boolean {
-    var str = case
-    val x = input.params.reduce { acc, l ->
-        ops[str % ops.size](acc, l).also { str /= ops.size }
-            .also { if (it > input.result) return false } // todo: make it cutting of the whole branch
-    }
-    return x == input.result
-}
-
-private fun Long.concat(other: Long): Long {
-    var t = this
-    var l = other
-    while (l > 0) {
-        t *= 10
-        l /= 10
-    }
-    return t + other
 }
 
 data class Input(val result: Long, val params: List<Long>)

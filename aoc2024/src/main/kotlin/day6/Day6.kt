@@ -2,13 +2,17 @@ package day6
 
 import go
 import readAllText
+import measure
 
 fun main() {
-    val input = readAllText("local/day6_input.txt").lines()
-    go(expected = 4819) { part1(input) }
-    go(expected = 1796) { part2(input) }
+    val input = readAllText("local/day6_input.txt")
+    val parsed = parse(input)
+    go(expected = 4819) { part1(parsed) }
+    go(expected = 1796) { part2(parsed) }
+    measure(input, parse = ::parse, part1 = ::part1, part2 = ::part2)
 }
 
+fun parse(string: String) = string.lines()
 fun part1(grid: Grid): Int {
     val start = grid.indexOf('^')
     return buildSet { patrol(grid, start) { add(it) } }.size

@@ -1,12 +1,15 @@
 package day7
 
 import go
+import measure
 import readAllText
 
 fun main() {
-    val input = parse(readAllText("local/day7_input.txt"))
+    val text = readAllText("local/day7_input.txt")
+    val input = parse(text)
     go(5702958180383) { part1(input) }
     go(92612386119138) { part2(input) }
+    measure(text, parse = ::parse, part1 = ::part1, part2 = ::part2)
 }
 
 val part1ops = { operand: Long, result: Long ->
@@ -16,7 +19,9 @@ val part1ops = { operand: Long, result: Long ->
     }
 }
 
-fun part1(inputs: Sequence<Input>) = inputs.sumOf { if (testAllCases(it, part1ops)) it.result else 0 }
+typealias Input = List<Line>
+
+fun part1(input: Input) = input.sumOf { if (testAllCases(it, part1ops)) it.result else 0 }
 
 val part2ops = { operand: Long, result: Long ->
     buildList {
@@ -28,24 +33,25 @@ val part2ops = { operand: Long, result: Long ->
     }
 }
 
-fun part2(inputs: Sequence<Input>) = inputs.sumOf { if (testAllCases(it, part2ops)) it.result else 0 }
+fun part2(input: Input) = input.sumOf { if (testAllCases(it, part2ops)) it.result else 0 }
 
-fun testAllCases(input: Input, ops: (Long, Long) -> List<Long>): Boolean {
-    val todo = mutableListOf(input.params.lastIndex to input.result)
+fun testAllCases(line: Line, ops: (Long, Long) -> List<Long>): Boolean {
+    val todo = mutableListOf(line.params.lastIndex to line.result)
     while (todo.isNotEmpty()) {
         val (pos, result) = todo.removeLast()
-        if (pos == 0 && result == input.params[pos]) return true
-        if (pos > 0) ops(input.params[pos], result).forEach { todo.add(pos - 1 to it) }
+        if (pos == 0 && result == line.params[pos]) return true
+        if (pos > 0) ops(line.params[pos], result).forEach { todo.add(pos - 1 to it) }
     }
     return false
 }
 
-data class Input(val result: Long, val params: List<Long>)
+data class Line(val result: Long, val params: List<Long>)
 
 fun parse(input: String) = input.lineSequence().filterNot(String::isBlank)
     .map { line ->
         val (r, p) = line.split(":")
         val result = r.toLong()
         val params = p.split(" ").filter { it.isNotBlank() }.map { it.toLong() }
-        Input(result, params)
+        Line(result, params)
     }
+    .toList()

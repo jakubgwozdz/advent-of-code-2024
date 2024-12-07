@@ -1,14 +1,41 @@
 import java.nio.file.Files
 import java.nio.file.Path
+import java.time.Duration
+import java.time.Instant
 import kotlin.time.measureTime
+import kotlin.time.toKotlinDuration
 
 fun readAllText(filePath: String): String = Files.readString(Path.of(filePath))
 fun String.linesWithoutLastBlanks(): List<String> = lines().dropLastWhile(String::isEmpty)
 
-inline fun<T> go(expected: T? = null, op: ()->T) {
+inline fun <T> go(expected: T? = null, op: () -> T) {
+    val result = op()
+    println(result)
+    if (expected != null) check(result == expected) { "expected $expected" }
+}
+
+fun <T, P0, P1, P2> measure(
+    input: T,
+    duration: Duration = Duration.ofSeconds(5),
+    parse: (T) -> P0,
+    part1: (P0) -> P1,
+    part2: (P0) -> P2
+) {
+    println("warming up for ${duration.toKotlinDuration()}")
+    val start = Instant.now()
+    var i = 0L
+    val parsed : P0 = parse(input)
+    val p1: P1 = part1(parsed)
+    val p2: P2 = part2(parsed)
     measureTime {
-        val result = op()
-        println(result)
-        if (expected!=null) check(result==expected) { "expected $expected"}
-    }.also { println("took $it") }
+        do {
+            check(parsed == parse(input))
+            check(p1 == part1(parsed))
+            check(p2 == part2(parsed))
+            i++
+        } while ((start + duration).isAfter(Instant.now()))
+    }.also { println("warmed up for $it ($i times)") }
+    measureTime { check(parsed == parse(input)) }.also { println("Parsing took $it") }
+    measureTime {  check(p1 == part1(parsed)) }.also { println("Part 1 took $it, result is $p1") }
+    measureTime {  check(p2 == part2(parsed)) }.also { println("Part 2 took $it, result is $p2") }
 }

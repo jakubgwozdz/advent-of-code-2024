@@ -19,7 +19,7 @@ fun part1(input: Sequence<Input>) = input.sumOf { calculate(it, part1ops) }
 val part2ops = listOf<(Long, Long) -> Long>(
     Long::plus,
     Long::times,
-    { acc, l -> (acc.toString() + l.toString()).toLong() },
+    Long::concat,
 )
 
 fun part2(input: Sequence<Input>) = input.sumOf { calculate(it, part2ops) }
@@ -42,9 +42,20 @@ fun isPossible(params: List<Long>, result: Long, ops: List<(Long, Long) -> Long>
 private fun testCase(case: Int, params: List<Long>, result: Long, ops: List<(Long, Long) -> Long>): Boolean {
     var str = case
     val x = params.reduce { acc, l ->
-        ops[str % ops.size](acc, l).also { str /= ops.size }.also { if (it > result) return false }
+        ops[str % ops.size](acc, l).also { str /= ops.size }
+            .also { if (it > result) return false } // todo: make it cutting of the whole branch
     }
     return x == result
+}
+
+private fun Long.concat(other: Long): Long {
+    var t = this
+    var l = other
+    while (l > 0) {
+        t *= 10
+        l /= 10
+    }
+    return t + other
 }
 
 data class Input(val result: Long, val params: List<Long>)

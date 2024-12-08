@@ -6,7 +6,7 @@ import measure
 import readAllText
 
 fun solve(grid: Grid, op: (Pos, Pos) -> Sequence<Pos>) = buildSet {
-    grid.antennas.forEach { positions ->
+    grid.antennas.forEach { (_, positions) ->
         positions.indices.forEach { i1 ->
             val pos1 = positions[i1]
             (i1 + 1..positions.lastIndex).forEach { i2 ->
@@ -34,7 +34,7 @@ fun part2(grid: Grid) = solve(grid) { pos1, pos2 ->
 data class Grid(
     val rowRange: IntRange,
     val colRange: IntRange,
-    val antennas: Collection<List<Pos>>
+    val antennas: Map<Char, List<Pos>>
 ) {
     operator fun contains(p: Pos) = p.first in rowRange && p.second in rowRange
 }
@@ -57,7 +57,7 @@ fun parse(text: String): Grid {
         .aggregate { _, accumulator: MutableSet<Pos>?, (_, pos), _ ->
             (accumulator ?: mutableSetOf()).apply { add(pos) }
         }
-    return Grid(lines.indices, lines[0].indices, (antennas - '.').values.map { it.toList() })
+    return Grid(lines.indices, lines[0].indices, (antennas - '.').mapValues { (_, v) -> v.toList() })
 }
 
 fun main() {

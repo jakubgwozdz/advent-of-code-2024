@@ -29,13 +29,13 @@ fun <T, P0, P1, P2> measure(
     val p2: P2 = part2(parsed)
     measureTime {
         do {
-            check(parsed == parse(input))
-            check(p1 == part1(parsed))
-            check(p2 == part2(parsed))
+            val parse1 = parse(input)
+            check(p1 == part1(parse1))
+            check(p2 == part2(parse1))
             i++
         } while ((start + duration).isAfter(Instant.now()))
     }.also { println("warmed up for $it ($i times)") }
-    measureTime { check(parsed == parse(input)) }.also { println("Parsing took $it") }
+    measureTime { parse(input) }.also { println("Parsing took $it") }
     measureTime {  check(p1 == part1(parsed)) }.also { println("Part 1 took $it, result is $p1") }
     measureTime {  check(p2 == part2(parsed)) }.also { println("Part 2 took $it, result is $p2") }
 }

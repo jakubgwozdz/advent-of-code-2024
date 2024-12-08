@@ -27,10 +27,27 @@ val part2ops = { operand: Long, result: Long ->
     buildList {
         if (result > operand) add(result - operand)
         if (result % operand == 0L) add(result / operand)
-        val r = result.toString()
-        val o = operand.toString()
-        if (r.endsWith(o) && r.length > o.length) add(r.dropLast(o.length).toLong())
+//        deleteLastStr(result, operand)?.let { add(it) }
+        deleteLast(result, operand)?.let { add(it) }
     }
+}
+
+fun deleteLast(result: Long, operand:Long):Long? {
+    var r = result
+    var o = operand
+    while (o > 0) {
+        if (o % 10 != r % 10) return null
+        r /= 10
+        o /= 10
+    }
+    return r
+}
+
+fun deleteLastStr(result: Long, operand:Long):Long? {
+    val r = result.toString()
+    val o = operand.toString()
+    return if (r.endsWith(o) && r.length > o.length) r.dropLast(o.length).toLong()
+    else null
 }
 
 fun part2(input: Input) = input.sumOf { if (testAllCases(it, part2ops)) it.result else 0 }

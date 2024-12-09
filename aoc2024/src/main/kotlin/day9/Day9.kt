@@ -5,58 +5,41 @@ import measure
 import readAllText
 
 data class Input(
-    val line: String,
     val files: List<Int>,
     val free: List<Int>,
 )
 
+data class File(val id: Int, val start: Int, val size: Int)
+
 fun part1(input: Input): Long {
-    val memory = fillMemory(input)
-//    println(toStr(memory))
+    var s = 0
+    val files = input.files.mapIndexed { idx, size ->
+        File(idx, s, size)
+            .also { s += size + input.free.getOrElse(idx) { 0 } }
+    }
+    val memory = IntArray(s) { -1 }
+    files.forEach { (id, start, size) -> repeat(size) { memory[start + it] = id } }
     var end = memory.lastIndex
     var start = 0
     while (start < end) {
         while (memory[start] >= 0) start++
         while (memory[end] < 0) end--
-        if (end > start) {
+        if (start < end) {
             memory[start++] = memory[end]
             memory[end--] = -1
         }
     }
-//    println(toStr(memory))
-    return checkMemory(memory)
+    return memory.checksum()
 }
 
-private fun checkMemory(memory: IntArray): Long {
-    var sum = 0L
-    memory.indices.filter { memory[it] > 0 }.forEach { sum += (memory[it] * it).toLong() }
-    return sum
+fun IntArray.checksum(): Long = foldIndexed(0L) { idx, acc, id ->
+    acc + if (id > 0) id * idx else 0
 }
 
 private fun toStr(memory: IntArray) = memory
     .joinToString(" ") { (if (it < 0) "." else "$it").padStart(4) }
     .chunked(100)
     .joinToString("\n")
-
-private fun fillMemory(input: Input): IntArray {
-    val length = input.files.sum() + input.free.sum()
-    val memory = IntArray(length) { -1 }
-    var onFile = true
-    var x = 0
-    var i = 0
-    while (i < length) {
-        if (onFile) {
-            repeat(input.files[x]) {
-                memory[i++] = x
-            }
-        } else {
-            i += input.free[x]
-            x++
-        }
-        onFile = !onFile
-    }
-    return memory
-}
 
 fun part2(input: Input): Long {
     var i = 0
@@ -101,7 +84,7 @@ fun part2(input: Input): Long {
             memory[i] = id
         }
     }
-    return checkMemory(memory)
+    return memory.checksum()
 //    println(files)
 //    return files.sumOf { (id, range) -> range.sumOf { it * id }.toLong() }
 }
@@ -118,7 +101,7 @@ fun parse(text: String): Input {
         else free += "$it".toInt()
         nextIsFile = !nextIsFile
     }
-    return Input(line, files, free)
+    return Input(files, free)
 }
 
 fun main() {
@@ -129,6 +112,7 @@ fun main() {
     go(6378826667552) { part1(input) }
     go(2858) { part2(test) }
     go(6413328569890) { part2(input) }
+    TODO()
     measure(text, parse = ::parse, part1 = ::part1, part2 = ::part2)
 }
 

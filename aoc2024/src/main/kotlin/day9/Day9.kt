@@ -16,7 +16,7 @@ data class Chunk(val id: Int, val start: Int, val size: Int, val done: Boolean =
     fun checksum() = id.toLong() * size * (start + start + size - 1) / 2
 }
 
-data class ChunkWithFree(val chunks: MutableList<Chunk>, var free: Int) {
+data class Sector(val chunks: MutableList<Chunk>, var free: Int) {
     val nextFree get() = chunks.last().nextFree
     fun add(chunk: Chunk) = chunks.add(chunk.move(nextFree)).also { free -= chunk.size }
     fun checksum() = chunks.sumOf(Chunk::checksum)
@@ -48,26 +48,26 @@ fun IntArray.checksum(): Long = foldIndexed(0L) { idx, acc, id ->
 }
 
 fun part2(input: Input): Long {
-    val chunksWithFree: List<ChunkWithFree> = buildList {
+    val sectors: List<Sector> = buildList {
         var s = 0
         input.files.forEachIndexed { idx, size ->
             val free = input.free.getOrElse(idx) { 0 }
-            add(ChunkWithFree(mutableListOf(Chunk(idx, s, size)), free))
+            add(Sector(mutableListOf(Chunk(idx, s, size)), free))
             s += size + free
         }
     }
 
-    chunksWithFree.asReversed().forEach { (chunks, _) ->
-        chunks.reversed().filterNot { it.done }.forEach { chunk ->
-            chunksWithFree.asSequence().takeWhile { it.nextFree < chunk.start }
+    sectors.asReversed().forEach { (currentChunks, _) ->
+        currentChunks.reversed().filterNot { it.done }.forEach { chunk ->
+            val sector = sectors.asSequence().takeWhile { it.nextFree < chunk.start }
                 .firstOrNull { it.free >= chunk.size }
-                ?.let {
-                    chunks.remove(chunk)
-                    it.add(chunk)
-                }
+            if (sector != null) {
+                currentChunks.remove(chunk)
+                sector.add(chunk)
+            }
         }
     }
-    return chunksWithFree.sumOf(ChunkWithFree::checksum)
+    return sectors.sumOf(Sector::checksum)
 }
 
 fun parse(text: String): Input {

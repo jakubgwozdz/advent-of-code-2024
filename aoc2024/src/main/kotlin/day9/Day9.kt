@@ -5,7 +5,7 @@ import measure
 import readAllText
 
 data class Input(
-    val chunks: List<Int>,
+    val files: List<Int>,
     val free: List<Int>,
 )
 
@@ -16,7 +16,7 @@ data class Chunk(val id: Int, val start: Int, val size: Int) {
 
 fun part1(input: Input): Long {
     var s = 0
-    val chunks = input.chunks.mapIndexed { idx, size ->
+    val chunks = input.files.mapIndexed { idx, size ->
         Chunk(idx, s, size)
             .also { s += size + input.free.getOrElse(idx) { 0 } }
     }
@@ -41,7 +41,7 @@ fun IntArray.checksum(): Long = foldIndexed(0L) { idx, acc, id ->
 
 fun part2(input: Input): Long {
     var s = 0
-    val chunks = input.chunks.mapIndexed { idx, size ->
+    val chunks = input.files.mapIndexed { idx, size ->
         Chunk(idx, s, size)
             .also { s += size + input.free.getOrElse(idx) { 0 } }
     }

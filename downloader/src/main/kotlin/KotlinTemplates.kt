@@ -16,13 +16,10 @@ fun main() {
         
         typealias Input = List<String>
         
-        fun part1(input: String) = input.lineSequence().filterNot(String::isBlank)
         fun part1(input: Input) = input
             .count()
         
-        fun part2(input: String) = input.lineSequence().filterNot(String::isBlank)
-        fun part2(input: Input) = input
-            .count()
+        fun part2(input: Input) = part1(input)
         
         fun parse(text: String) = text.linesWithoutLastBlanks()
         

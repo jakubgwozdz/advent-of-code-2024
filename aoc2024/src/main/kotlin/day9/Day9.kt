@@ -4,10 +4,7 @@ import go
 import measure
 import readAllText
 
-data class Input(
-    val files: List<Int>,
-    val free: List<Int>,
-)
+typealias Input = List<Sector>
 
 data class Chunk(val id: Int, val start: Int, val size: Int, val done: Boolean = false) {
     val nextFree get() = start + size
@@ -16,19 +13,19 @@ data class Chunk(val id: Int, val start: Int, val size: Int, val done: Boolean =
     fun checksum() = id.toLong() * size * (start + start + size - 1) / 2
 }
 
-data class Sector(val chunks: MutableList<Chunk>, var free: Int) {
+data class MutableSector(val chunks: MutableList<Chunk>, var free: Int) {
     val nextFree get() = chunks.last().nextFree
     fun add(chunk: Chunk) = chunks.add(chunk.move(nextFree)).also { free -= chunk.size }
     fun checksum() = chunks.sumOf(Chunk::checksum)
 }
 
+data class Sector(val chunks: List<Chunk>, val free: Int) {
+    fun toMutableSector() = MutableSector(chunks.toMutableList(), free)
+}
+
 fun part1(input: Input): Long {
-    var s = 0
-    val chunks = input.files.mapIndexed { idx, size ->
-        Chunk(idx, s, size)
-            .also { s += size + input.free.getOrElse(idx) { 0 } }
-    }
-    val memory = IntArray(s) { -1 }
+    val chunks = input.flatMap { it.chunks }
+    val memory = IntArray(chunks.last().nextFree) { -1 }
     chunks.forEach { (id, start, size) -> repeat(size) { memory[start + it] = id } }
     var end = memory.lastIndex
     var start = 0
@@ -48,39 +45,31 @@ fun IntArray.checksum(): Long = foldIndexed(0L) { idx, acc, id ->
 }
 
 fun part2(input: Input): Long {
-    val sectors: List<Sector> = buildList {
-        var s = 0
-        input.files.forEachIndexed { idx, size ->
-            val free = input.free.getOrElse(idx) { 0 }
-            add(Sector(mutableListOf(Chunk(idx, s, size)), free))
-            s += size + free
-        }
-    }
+    val sectors = input.map(Sector::toMutableSector)
 
     sectors.asReversed().forEach { (currentChunks, _) ->
         currentChunks.reversed().filterNot { it.done }.forEach { chunk ->
-            val sector = sectors.asSequence().takeWhile { it.nextFree < chunk.start }
+            val destination = sectors.asSequence().takeWhile { it.nextFree < chunk.start }
                 .firstOrNull { it.free >= chunk.size }
-            if (sector != null) {
+            if (destination != null) {
                 currentChunks.remove(chunk)
-                sector.add(chunk)
+                destination.add(chunk)
             }
         }
     }
-    return sectors.sumOf(Sector::checksum)
+    return sectors.sumOf(MutableSector::checksum)
 }
 
-fun parse(text: String): Input {
-    val line = text.trim()
-    val files = mutableListOf<Int>()
-    val free = mutableListOf<Int>()
-    var nextIsFile = true
-    line.forEach {
-        if (nextIsFile) files += "$it".toInt()
-        else free += "$it".toInt()
-        nextIsFile = !nextIsFile
-    }
-    return Input(files, free)
+fun parse(text: String): Input = buildList {
+    var s = 0
+    text.trim()
+        .asSequence()
+        .chunked(2)
+        .map { it[0].digitToInt() to it.getOrElse(1) { '0' }.digitToInt() }
+        .forEachIndexed { id, (size, free) ->
+            add(Sector(listOf(Chunk(id, s, size)), free))
+            s += size + free
+        }
 }
 
 fun main() {

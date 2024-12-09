@@ -27,7 +27,6 @@ fun parse(text: String): Input = buildList {
 }
 
 data class MutableChunk(val id: Int, val start: Int, var size: Int, val done: Boolean = false) {
-    val nextFree get() = start + size
     fun extractTo(dest: MutableSector) {
         val copy = copy(start = dest.nextFree, size = this.size.coerceAtMost(dest.free), done = true)
         dest.add(copy)
@@ -39,15 +38,13 @@ data class MutableChunk(val id: Int, val start: Int, var size: Int, val done: Bo
 
 data class MutableSector(val chunks: MutableList<MutableChunk>, val size: Int) {
     val start: Int = chunks.first().start
-    var nextFree = chunks.last().nextFree
-        private set
-    var free = start + size - nextFree
-        private set
+    var nextFree = chunks.sumOf { it.size } + start
+    var free = size - chunks.sumOf { it.size }
 
     fun checksum() = chunks.sumOf(MutableChunk::checksum)
     fun add(copy: MutableChunk) {
         chunks.add(copy)
-        nextFree = copy.nextFree
+        nextFree += copy.size
         free -= copy.size
     }
 }

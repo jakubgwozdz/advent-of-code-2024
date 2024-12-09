@@ -9,9 +9,17 @@ data class Input(
     val free: List<Int>,
 )
 
-data class Chunk(val id: Int, val start: Int, val size: Int) {
+data class Chunk(val id: Int, val start: Int, val size: Int, val done: Boolean = false) {
     val nextFree get() = start + size
     override fun toString() = "$id @ $start..<$nextFree"
+    fun move(dest: Int) = copy(start = dest, done = true)
+    fun checksum() = id.toLong() * size * (start + start + size - 1) / 2
+}
+
+data class ChunkWithFree(val chunks: MutableList<Chunk>, var free: Int) {
+    val nextFree get() = chunks.last().nextFree
+    fun add(chunk: Chunk) = chunks.add(chunk.move(nextFree)).also { free -= chunk.size }
+    fun checksum() = chunks.sumOf(Chunk::checksum)
 }
 
 fun part1(input: Input): Long {
@@ -40,41 +48,26 @@ fun IntArray.checksum(): Long = foldIndexed(0L) { idx, acc, id ->
 }
 
 fun part2(input: Input): Long {
-    var s = 0
-    val chunks = input.files.mapIndexed { idx, size ->
-        Chunk(idx, s, size)
-            .also { s += size + input.free.getOrElse(idx) { 0 } }
-    }
-    val compacted = SortedList(chunks, compareBy { it.start })
-    chunks.asReversed().forEach { original ->
-        val found: Int? = compacted.asSequence().zipWithNext()
-            .takeWhile { (f1, f2) -> f1.nextFree < original.start }
-            .firstOrNull { (f1, f2) -> f2.start - f1.nextFree >= original.size }
-            ?.first?.nextFree
-        if (found != null) {
-            compacted.remove(original)
-            compacted.add(original.copy(start = found))
+    val chunksWithFree: List<ChunkWithFree> = buildList {
+        var s = 0
+        input.files.forEachIndexed { idx, size ->
+            val free = input.free.getOrElse(idx) { 0 }
+            add(ChunkWithFree(mutableListOf(Chunk(idx, s, size)), free))
+            s += size + free
         }
     }
-    return compacted.backing.sumOf { (id, start, size) -> (0..<size).sumOf { id.toLong() * (start + it) } }
-}
 
-class SortedList<E>(initial: List<E>, val comparator: Comparator<E>) {
-    val backing: ArrayList<E> = ArrayList(initial)
-    fun asSequence(): Sequence<E> = backing.asSequence()
-    fun forEach(f: (E) -> Unit) = backing.forEach(f)
-    fun add(element: E) = backing.add(indexFor(element), element)
-    fun remove(element: E): Boolean = indexFor(element).let {
-        if (it in backing.indices) {
-            backing.removeAt(it)
-            true
-        } else false
+    chunksWithFree.asReversed().forEach { (chunks, _) ->
+        chunks.reversed().filterNot { it.done }.forEach { chunk ->
+            chunksWithFree.asSequence().takeWhile { it.nextFree < chunk.start }
+                .firstOrNull { it.free >= chunk.size }
+                ?.let {
+                    chunks.remove(chunk)
+                    it.add(chunk)
+                }
+        }
     }
-
-    // differs from indexOf
-    private fun indexFor(element: E): Int = backing.binarySearch(element, comparator).let {
-        if (it < 0) -it - 1 else it
-    }
+    return chunksWithFree.sumOf(ChunkWithFree::checksum)
 }
 
 fun parse(text: String): Input {
@@ -100,4 +93,3 @@ fun main() {
     go(6413328569890) { part2(input) }
     measure(text, parse = ::parse, part1 = ::part1, part2 = ::part2)
 }
-

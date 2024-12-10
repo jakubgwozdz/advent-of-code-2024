@@ -16,9 +16,8 @@ fun parse(text: String): Input = text.linesWithoutLastBlanks()
 
 fun part1(input: Input): Int = input[0].orEmpty().sumOf { start ->
     (1..9)
-        .fold(listOf(start)) { acc, i ->
-            acc.flatMap(Pos::adjacents).filter(input[i].orEmpty()::contains)
-                .distinct()
+        .fold(setOf(start)) { acc, i ->
+            acc.flatMap(Pos::adjacents).intersect(input[i].orEmpty())
         }
         .count()
 }

@@ -10,38 +10,26 @@ typealias Pos = Pair<Int, Int>
 
 enum class Dir { U, R, D, L }
 
-operator fun Pos.plus(d: Dir) = when (d) {
-    Dir.U -> first - 1 to second
-    Dir.R -> first to second + 1
-    Dir.D -> first + 1 to second
-    Dir.L -> first to second - 1
-}
-
-fun part1(input: Input): Int = input[0].orEmpty().sumOf { start->
-    var i = 0
-    var s = setOf(start)
-    while (i < 9) {
-        i++
-        val nexts = input[i].orEmpty()
-        s = Dir.entries.flatMap { d -> s.map { it + d }.filter { it in nexts } }.toSet()
-    }
-    s.count()
-}
-
-fun part2(input: Input) = input[0].orEmpty().sumOf { start->
-    var i = 0
-    var s = listOf(start)
-    while (i < 9) {
-        i++
-        s = Dir.entries.flatMap { d -> s.map { it + d }.filter { it in input[i].orEmpty() } }
-    }
-    s.count()
-}
-
-
 fun parse(text: String): Input = text.linesWithoutLastBlanks()
     .flatMapIndexed { row, s -> s.mapIndexed { col, char -> char.digitToInt() to (row to col) } }
     .groupBy { it.first }.mapValues { it.value.map { it.second }.toSet() }
+
+fun part1(input: Input): Int = input[0].orEmpty().sumOf { start ->
+    (1..9)
+        .fold(listOf(start)) { acc, i ->
+            acc.flatMap { it.adjacents() }.filter(input[i].orEmpty()::contains)
+                .distinct()
+        }
+        .count()
+}
+
+fun part2(input: Input) = input[0].orEmpty().sumOf { start ->
+    (1..9)
+        .fold(listOf(start)) { acc, i ->
+            acc.flatMap { it.adjacents() }.filter(input[i].orEmpty()::contains)
+        }
+        .count()
+}
 
 val test = """
     89010123
@@ -64,3 +52,11 @@ fun main() {
     measure(text, parse = ::parse, part1 = ::part1, part2 = ::part2)
 }
 
+fun Pos.adjacents() = Dir.entries.map(this::plus)
+
+operator fun Pos.plus(d: Dir) = when (d) {
+    Dir.U -> first - 1 to second
+    Dir.R -> first to second + 1
+    Dir.D -> first + 1 to second
+    Dir.L -> first to second - 1
+}

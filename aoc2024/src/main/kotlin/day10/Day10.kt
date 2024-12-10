@@ -17,7 +17,7 @@ fun parse(text: String): Input = text.linesWithoutLastBlanks()
 fun part1(input: Input): Int = input[0].orEmpty().sumOf { start ->
     (1..9)
         .fold(listOf(start)) { acc, i ->
-            acc.flatMap { it.adjacents() }.filter(input[i].orEmpty()::contains)
+            acc.flatMap(Pos::adjacents).filter(input[i].orEmpty()::contains)
                 .distinct()
         }
         .count()
@@ -26,27 +26,14 @@ fun part1(input: Input): Int = input[0].orEmpty().sumOf { start ->
 fun part2(input: Input) = input[0].orEmpty().sumOf { start ->
     (1..9)
         .fold(listOf(start)) { acc, i ->
-            acc.flatMap { it.adjacents() }.filter(input[i].orEmpty()::contains)
+            acc.flatMap(Pos::adjacents).filter(input[i].orEmpty()::contains)
         }
         .count()
 }
 
-val test = """
-    89010123
-    78121874
-    87430965
-    96549874
-    45678903
-    32019012
-    01329801
-    10456732
-""".trimIndent()
-
 fun main() {
     val text = readAllText("local/day10_input.txt")
     val input = parse(text)
-    go(36) { part1(parse(test)) }
-    go(81) { part2(parse(test)) }
     go(574) { part1(input) }
     go(1238) { part2(input) }
     measure(text, parse = ::parse, part1 = ::part1, part2 = ::part2)

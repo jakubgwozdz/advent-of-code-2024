@@ -4,35 +4,33 @@ import go
 import measure
 import readAllText
 
-fun Input.blink() = flatMap { (s, c) ->
-    when (s) {
-        0L -> listOf(1L to c)
-        in (10..99) -> listOf(s / 10 to c, s % 10 to c)
-        in (1000..9999) -> listOf(s / 100 to c, s % 100 to c)
-        in (100000..999999) -> listOf(s / 1000 to c, s % 1000 to c)
-        in (10000000..99999999) -> listOf(s / 10000 to c, s % 10000 to c)
-        in (1000000000..9999999999) -> listOf(s / 100000 to c, s % 100000 to c)
-        in (100000000000..999999999999) -> listOf(s / 1000000 to c, s % 1000000 to c)
-        else -> listOf(s * 2024 to c)
-    }
+private fun Long.blink(times: Long) = when (this) {
+    0L -> listOf(1L to times)
+    in 10L..99 -> listOf(this / 10 to times, this % 10 to times)
+    in 1000L..9999 -> listOf(this / 100 to times, this % 100 to times)
+    in 100000L..999999 -> listOf(this / 1000 to times, this % 1000 to times)
+    in 10000000L..99999999 -> listOf(this / 10000 to times, this % 10000 to times)
+    in 1000000000L..9999999999 -> listOf(this / 100000 to times, this % 100000 to times)
+    in 100000000000L..999999999999 -> listOf(this / 1000000 to times, this % 1000000 to times)
+    else -> listOf(this * 2024 to times)
 }
-    .groupingBy { it.first }
-    .fold(0L) { a, (_, e) -> a + e }
-    .toList()
 
-typealias Input = List<Pair<Long, Long>>
+fun Input.blink() = flatMap { (s, times) -> s.blink(times) }
+    .groupingBy { it.first }.fold(0L) { acc, (_, times) -> acc + times }
 
-fun part1(input: Input) = blinks(input, 25)
+typealias Input = Map<Long, Long>
 
 private fun blinks(input: Input, number: Int): Long {
     var x = input
     repeat(number) { x = x.blink() }
-    return x.sumOf { it.second }
+    return x.values.sum()
 }
+
+fun part1(input: Input) = blinks(input, 25)
 
 fun part2(input: Input) = blinks(input, 75)
 
-fun parse(text: String): Input = text.trim().split(" ").map { it.toLong() to 1L }
+fun parse(text: String): Input = text.trim().split(" ").associate { it.toLong() to 1L}
 
 fun main() {
     val text = readAllText("local/day11_input.txt")

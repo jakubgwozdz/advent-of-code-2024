@@ -31,8 +31,9 @@ fun Region.continuous() = buildList<Region> {
     })
 }
 
-fun Region.perimeter(): Perimeter = flatMap { it.neighbours().filterNot { (p, _) -> p in this } }.toSet()
-fun Perimeter.discounted():Perimeter = filter { (pos, dir) -> (pos + dir.turnRight() to dir) !in this }.toSet()
+fun Region.perimeter(): Perimeter = flatMap { it.neighbours().filterNot { (pos, _) -> pos in this } }.toSet()
+
+fun Perimeter.discounted(): Perimeter = filterNot { (pos, dir) -> (pos + dir.turnRight() to dir) in this }.toSet()
 
 fun part1(input: Input) = input.asRegions()
     .sumOf { it.size * it.perimeter().size }

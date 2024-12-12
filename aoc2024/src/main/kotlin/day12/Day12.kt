@@ -8,7 +8,8 @@ import readAllText
 enum class Dir { U, R, D, L }
 typealias Pos = Pair<Int, Int>
 typealias Region = List<Pos>
-typealias Perimeter = Set<Pair<Pos, Dir>>
+typealias Fence = Pair<Pos, Dir>
+typealias Perimeter = Set<Fence>
 typealias Input = List<String>
 
 fun Input.asRegions(): Collection<Region> =
@@ -93,7 +94,7 @@ operator fun Pos.plus(d: Dir): Pos = when (d) {
     Dir.L -> first to second - 1
 }
 
-fun Pos.neighbours() = Dir.entries.map { this + it to it }
+fun Pos.neighbours(): List<Fence> = Dir.entries.map { this + it to it }
 
 fun Dir.turnRight() = Dir.entries[(ordinal + 1) % Dir.entries.size]
 

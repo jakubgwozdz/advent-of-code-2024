@@ -68,10 +68,10 @@ fun main(args: Array<String>) {
 
     logger.info("My input is $stats")
 
-    val token = Files.readString(localPath.resolve("slack_token")).trim()
-    val channelId = Files.readString(localPath.resolve("slack_channel")).trim()
-    val url = urlForDay(year, day)
-    createSlackThread(token, channelId, puzzleTextTitle(puzzleText), stats, url)
+//    val token = Files.readString(localPath.resolve("slack_token")).trim()
+//    val channelId = Files.readString(localPath.resolve("slack_channel")).trim()
+//    val url = urlForDay(year, day)
+//    createSlackThread(token, channelId, puzzleTextTitle(puzzleText), stats, url)
 }
 
 fun notFetchedYet(): Int = (1..25).first { Files.notExists(inputPath(it)) }

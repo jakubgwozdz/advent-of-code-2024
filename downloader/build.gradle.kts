@@ -17,3 +17,7 @@ kotlin {
 }
 
 application.mainClass.set("MainKt")
+
+tasks.named<JavaExec>("run") {
+    workingDir = file(System.getProperty("user.dir"))
+}

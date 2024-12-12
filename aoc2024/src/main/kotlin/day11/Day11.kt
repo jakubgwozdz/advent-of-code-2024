@@ -30,7 +30,7 @@ fun part1(input: Input) = blinks(input, 25)
 
 fun part2(input: Input) = blinks(input, 75)
 
-fun parse(text: String): Input = text.trim().split(" ").associate { it.toLong() to 1L}
+fun parse(text: String): Input = text.trim().split(" ").associate { it.toLong() to 1L }
 
 fun main() {
     val text = readAllText("local/day11_input.txt")

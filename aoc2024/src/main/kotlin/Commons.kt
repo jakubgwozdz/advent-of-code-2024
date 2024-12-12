@@ -8,9 +8,9 @@ import kotlin.time.toKotlinDuration
 fun readAllText(filePath: String): String = Files.readString(Path.of(filePath))
 fun String.linesWithoutLastBlanks(): List<String> = lines().dropLastWhile(String::isEmpty)
 
-inline fun <T> go(expected: T? = null, op: () -> T) {
+inline fun <T> go(expected: T? = null, desc: String = "", op: () -> T) {
     val result = op()
-    println(result)
+    println("$desc$result")
     if (expected != null) check(result == expected) { "expected $expected" }
 }
 

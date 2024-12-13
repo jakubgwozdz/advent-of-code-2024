@@ -8,9 +8,12 @@ import readAllText
 typealias Pos = Pair<Long, Long> // x, y
 
 operator fun Pos.plus(other: Pos) = Pos(first + other.first, second + other.second)
+operator fun Pos.minus(other: Pos) = Pos(first - other.first, second - other.second)
 operator fun Pos.times(other: Int) = Pos(first * other, second * other)
 operator fun Pos.times(other: Long) = Pos(first * other, second * other)
 fun Pos.isLessThanOrEqual(other: Pos) = first <= other.first && second <= other.second
+fun Pos.isValid() = first >= 0L && second >= 0L
+fun Pos.isZero() = first == 0L && second == 0L
 
 data class Case(val a: Pos, val b: Pos, val prize: Pos)
 
@@ -35,11 +38,10 @@ fun Case.solve(): Long {
     val bStart = 0L
     var ta = aStart
     var tb = bStart
-    while ((a * (ta) + b * (tb)).isLessThanOrEqual(prize)) {
+    while ((prize - a * ta - b * tb).isValid()) {
         var tb = bStart
-        while ((a * (ta) + b * (tb)).isLessThanOrEqual(prize)) {
-            val pos = a * (ta) + b * (tb)
-            if (pos == prize) return price(ta, tb)
+        while ((prize - a * ta - b * tb).isValid()) {
+            if (a * ta + b * tb == prize) return price(ta, tb)
             tb++
         }
         ta++
@@ -48,19 +50,19 @@ fun Case.solve(): Long {
 }
 
 fun Case.solve2(): Long {
-    val lcm = lcm(a.first, b.first) * lcm(a.second, b.second)
-    val maxOps = lcm
-    val startA = minOf(prize.first / a.first, prize.second / a.second) - lcm
-    val startB = minOf(prize.first / b.first, prize.second / b.second) - lcm
-
-    for (ta in 0..maxOps) {
-        for (tb in 0..maxOps) {
-            val x = a * (startA + ta) + b * (startB + tb)
-            if (x == prize) return price(startA + ta, startB + tb)
+    val aStart = 0L
+    val bStart = 0L
+    var ta = aStart
+    var tb = bStart
+    while ((prize - a * ta - b * tb).isValid() && ta <= 10000) {
+        var tb = bStart
+        while ((prize - a * ta - b * tb).isValid() && tb <= 10000) {
+            if (a * (ta) + b * (tb) == prize) return price(ta, tb).also { println("$this ta=$ta tb=$tb price=$it") }
+            tb++
         }
+        ta++
     }
-
-    return 0
+    return 0L.also { println("$this ta=$ta tb=$tb price=$it") }
 }
 
 fun part2(input: Input) = input

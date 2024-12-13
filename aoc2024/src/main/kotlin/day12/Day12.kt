@@ -100,4 +100,4 @@ operator fun Pos.plus(d: Dir): Pos = when (d) {
 fun Pos.neighbours(): List<Fence> = Dir.entries.map { this + it to it }
 
 fun Dir.turnRight() = Dir.entries[(ordinal + 1) % Dir.entries.size]
-
+fun Dir.turnLeft() = Dir.entries[(ordinal - 1 + Dir.entries.size) % Dir.entries.size]

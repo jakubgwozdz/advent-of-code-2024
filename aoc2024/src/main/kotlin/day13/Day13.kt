@@ -4,16 +4,12 @@ import go
 import linesWithoutLastBlanks
 import measure
 import readAllText
+import kotlin.math.min
 
 typealias Pos = Pair<Long, Long> // x, y
 
 operator fun Pos.plus(other: Pos) = Pos(first + other.first, second + other.second)
-operator fun Pos.minus(other: Pos) = Pos(first - other.first, second - other.second)
-operator fun Pos.times(other: Int) = Pos(first * other, second * other)
 operator fun Pos.times(other: Long) = Pos(first * other, second * other)
-fun Pos.isLessThanOrEqual(other: Pos) = first <= other.first && second <= other.second
-fun Pos.isValid() = first >= 0L && second >= 0L
-fun Pos.isZero() = first == 0L && second == 0L
 
 data class Case(val a: Pos, val b: Pos, val prize: Pos)
 
@@ -21,48 +17,19 @@ typealias Input = List<Case>
 
 fun price(tA: Long, tB: Long) = tA * 3 + tB
 
-fun part1(input: Input) = input.sumOf { case ->
-    case.solve()
-//        .also { println("$case $it") }
-//        .also {
-//        val solve2 = case.solve2()
-//        if (solve2 != it) {
-//            println("$case solution1 $it solution2 $solve2")
-//            case.solve2()
-//        }
-//    }
-}
-
-fun Case.solve(): Long {
-    val aStart = 0L
-    val bStart = 0L
-    var ta = aStart
-    var tb = bStart
-    while ((prize - a * ta - b * tb).isValid()) {
-        var tb = bStart
-        while ((prize - a * ta - b * tb).isValid()) {
-            if (a * ta + b * tb == prize) return price(ta, tb)
-            tb++
-        }
-        ta++
-    }
-    return 0
-}
+fun part1(input: Input) = input.sumOf(Case::solve2)
 
 fun Case.solve2(): Long {
-    val aStart = 0L
-    val bStart = 0L
-    var ta = aStart
-    var tb = bStart
-    while ((prize - a * ta - b * tb).isValid() && ta <= 10000) {
-        var tb = bStart
-        while ((prize - a * ta - b * tb).isValid() && tb <= 10000) {
-            if (a * (ta) + b * (tb) == prize) return price(ta, tb).also { println("$this ta=$ta tb=$tb price=$it") }
-            tb++
-        }
-        ta++
-    }
-    return 0L.also { println("$this ta=$ta tb=$tb price=$it") }
+    val (px, py) = prize
+    val (ax, ay) = a
+    val (bx, by) = b
+    val d = ax * by - ay * bx
+    if (d == 0L) error { "d==0 for $this" }
+    val ta = (px * by - py * bx) / d
+    val tb = (ax * py - ay * px) / d
+    val pos = a * ta + b * tb
+    return if (pos != prize) 0
+    else price(ta, tb)
 }
 
 fun part2(input: Input) = input
@@ -77,11 +44,6 @@ fun parse(text: String) = text.linesWithoutLastBlanks().chunked(4).map { (sA, sB
     val a = rA.find(sA)!!.destructured.let { (x, y) -> Pos(x.toLong(), y.toLong()) }
     val b = rB.find(sB)!!.destructured.let { (x, y) -> Pos(x.toLong(), y.toLong()) }
     val prize = rP.find(sP)!!.destructured.let { (x, y) -> Pos(x.toLong(), y.toLong()) }
-//    if (gcd(a.first, b.first) != 1L && gcd(a.second, b.second) != 1L) println(
-//        "$a,$b,$prize gcd(X)=${
-//            gcd(a.first, b.first)
-//        }, gcd(Y)=${gcd(a.second, b.second)}"
-//    )
     Case(a, b, prize)
 }
 
@@ -108,10 +70,6 @@ fun main() {
     val text = readAllText("local/day13_input.txt")
     val input = parse(text)
     go(30973) { part1(input) }
-    go() { part2(input) }
-    TODO()
+    go(95688837203288) { part2(input) }
     measure(text, parse = ::parse, part1 = ::part1, part2 = ::part2)
 }
-
-tailrec fun gcd(a: Long, b: Long): Long = if (b == 0L) a else gcd(b, a % b)
-fun lcm(a: Long, b: Long): Long = a / gcd(a, b) * b

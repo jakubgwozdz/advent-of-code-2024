@@ -7,19 +7,23 @@ import readAllText
 
 enum class Dir { U, R, D, L }
 typealias Pos = Pair<Int, Int>
-typealias Region = List<Pos>
+typealias Region = Pair<Char, List<Pos>>
 typealias Fence = Pair<Pos, Dir>
 typealias Perimeter = Set<Fence>
 typealias Input = List<String>
 
+val Region.positions get() = second
+val Region.plant get() = first
+val Region.size get() = positions.size
+
 fun Input.asRegions(): Collection<Region> =
-    flatMapIndexed { row, line -> line.indices.map { col -> row to col } }
-        .groupBy { (r, c) -> this[r][c] }.values
+    flatMapIndexed { row, line -> line.mapIndexed { col, ch -> ch to Pos(row, col) } }
+        .groupBy { (c) -> c }.map { (c, list) -> c to list.map { (_, pos) -> pos } }
         .flatMap { it.continuous() }
 
 fun Region.continuous() = buildList<Region> {
-    val toGo = this@continuous.toMutableSet()
-    while (toGo.isNotEmpty()) add(buildList {
+    val toGo = positions.toMutableSet()
+    while (toGo.isNotEmpty()) add(plant to buildList {
         val queue = mutableListOf(toGo.first().also { toGo.remove(it) })
         while (queue.isNotEmpty()) {
             val element = queue.removeFirst()
@@ -32,7 +36,8 @@ fun Region.continuous() = buildList<Region> {
     })
 }
 
-fun Region.perimeter(): Perimeter = flatMap { it.neighbours().filterNot { (pos, _) -> pos in this } }.toSet()
+fun Region.perimeter(): Perimeter =
+    positions.flatMap { it.neighbours().filterNot { (pos, _) -> pos in positions } }.toSet()
 
 fun Perimeter.discounted(): Perimeter = filterNot { (pos, dir) -> (pos + dir.turnRight() to dir) in this }.toSet()
 
@@ -44,21 +49,20 @@ fun part2(input: Input) = input.asRegions()
 
 fun parse(text: String): Input = text.linesWithoutLastBlanks()
 
-fun main() {
-    val test1 = """
+val test1 = """
         AAAA
         BBCD
         BBCC
         EEEC
     """.trimIndent()
-    val test2 = """
+val test2 = """
         OOOOO
         OXOXO
         OOOOO
         OXOXO
         OOOOO
     """.trimIndent()
-    val test3 = """
+val test3 = """
         RRRRIICCFF
         RRRRIICCCF
         VVRRRCCFFF
@@ -71,11 +75,10 @@ fun main() {
         MMMISSJEEE
     """.trimIndent()
 
+fun main() {
     val text = readAllText("local/day12_input.txt")
     val input = parse(text)
 
-    go(140) { part1(parse(test1)) }
-    go(772) { part1(parse(test2)) }
     go(1930) { part1(parse(test3)) }
 
     go(1415378) { part1(input) }

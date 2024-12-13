@@ -44,9 +44,6 @@ fun main() {
     }
 
     JFrame("Day 9").apply {
-//        val ge = GraphicsEnvironment.getLocalGraphicsEnvironment()
-//        val screen = ge.screenDevices.maxBy { it.defaultConfiguration.bounds.height }
-//        location = screen.defaultConfiguration.bounds.location.let { Point(it.x + 50, it.y + 50) }
         location = Point(500,300)
         add(panel)
         pack()
@@ -104,50 +101,50 @@ private var derivedFont: Font? = null
 private val bgColor = Color(15, 33, 67)
 private val fgColor = Color(139, 98, 18, 255)
 
-fun drawState(image: BufferedImage, state: State) = image.createGraphics().run {
-    font = if (derivedFont != null) derivedFont else font.deriveFont(36f).also { derivedFont = it }
-    translate(20, 20)
-    setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
-    color = bgColor
-    clearRect(0, 0, image.width, image.height)
-    color = fgColor
-    stroke = BasicStroke(5.0f)
-    drawRect(-10, -10, scale * 8 + 20, scale * 8)
-    color = fgColor.withAlpha(20)
-    stroke = BasicStroke(2.0f)
+fun drawState(image: BufferedImage, state: State) = image.createGraphics().let { g ->
+    g.font = if (derivedFont != null) derivedFont else g.font.deriveFont(36f).also { derivedFont = it }
+    g.translate(20, 20)
+    g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
+    g.color = bgColor
+    g.clearRect(0, 0, image.width, image.height)
+    g.color = fgColor
+    g.stroke = BasicStroke(5.0f)
+    g.drawRect(-10, -10, scale * 8 + 20, scale * 8)
+    g.color = fgColor.withAlpha(20)
+    g.stroke = BasicStroke(2.0f)
     repeat(state.sectors.lastOrNull()?.let { it.chunks.first().start + it.size } ?: 0) {
-        draw3DRect(it.x() - 45.pct(), it.y() - 45.pct(), 90.pct(), 90.pct(), false)
+        g.draw3DRect(it.x() - 45.pct(), it.y() - 45.pct(), 90.pct(), 90.pct(), false)
     }
     state.sectors.forEach { sector ->
-        color = fgColor.withAlpha(200)
+        g.color = fgColor.withAlpha(200)
         val first = sector.chunks.first().start
         val last = first + sector.size - 1
         (first + 1..<last).forEach { i ->
             val x = i.x()
             val y = i.y()
-            drawLine(x - 50.pct(), y - 48.pct(), x + 50.pct() - 1, y - 48.pct())
-            drawLine(x - 50.pct(), y + 48.pct(), x + 50.pct() - 1, y + 48.pct())
+            g.drawLine(x - 50.pct(), y - 48.pct(), x + 50.pct() - 1, y - 48.pct())
+            g.drawLine(x - 50.pct(), y + 48.pct(), x + 50.pct() - 1, y + 48.pct())
         }
         first.let { i ->
             val x = i.x()
             val y = i.y()
-            drawLine(x - 48.pct(), y - 48.pct(), x + 50.pct() - 1, y - 48.pct())
-            drawLine(x - 48.pct(), y + 48.pct(), x + 50.pct() - 1, y + 48.pct())
-            drawLine(x - 48.pct(), y - 48.pct(), x - 48.pct(), y + 48.pct())
+            g.drawLine(x - 48.pct(), y - 48.pct(), x + 50.pct() - 1, y - 48.pct())
+            g.drawLine(x - 48.pct(), y + 48.pct(), x + 50.pct() - 1, y + 48.pct())
+            g.drawLine(x - 48.pct(), y - 48.pct(), x - 48.pct(), y + 48.pct())
         }
         last.let { i ->
             val x = i.x()
             val y = i.y()
-            drawLine(x - 50.pct(), y - 48.pct(), x + 48.pct(), y - 48.pct())
-            drawLine(x - 50.pct(), y + 48.pct(), x + 48.pct(), y + 48.pct())
-            drawLine(x + 48.pct(), y - 48.pct(), x + 48.pct(), y + 48.pct())
+            g.drawLine(x - 50.pct(), y - 48.pct(), x + 48.pct(), y - 48.pct())
+            g.drawLine(x - 50.pct(), y + 48.pct(), x + 48.pct(), y + 48.pct())
+            g.drawLine(x + 48.pct(), y - 48.pct(), x + 48.pct(), y + 48.pct())
         }
         sector.chunks.forEach { chunk ->
             repeat(chunk.size) {
                 val i = it + chunk.start
                 val x = i.x()
                 val y = i.y()
-                drawChunkPiece(x, y, chunk.id)
+                g.drawChunkPiece(x, y, chunk.id)
             }
         }
     }
@@ -159,11 +156,11 @@ fun drawState(image: BufferedImage, state: State) = image.createGraphics().run {
             val yd = (dst.start + it).y()
             val x = xs + (xd - xs) * state.progress / 100
             val y = ys + (yd - ys) * state.progress / 100
-            drawChunkPiece(x, y, src.id)
+            g.drawChunkPiece(x, y, src.id)
         }
     }
-    color = fgColor.withAlpha(200)
-    drawString(state.line, 80.pct(), 7 * scale)
+    g.color = fgColor.withAlpha(200)
+    g.drawString(state.line, 80.pct(), 7 * scale)
 }
 
 private fun Graphics2D.drawChunkPiece(x: Int, y: Int, id: Int) {

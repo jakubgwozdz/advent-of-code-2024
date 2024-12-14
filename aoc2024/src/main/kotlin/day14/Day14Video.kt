@@ -23,24 +23,29 @@ import kotlin.random.Random
 typealias State = Long
 
 fun main() {
-    val input = parse(readAllText("local/day14_input.txt"))
+    val input = parse(readAllText("local/day14_input_2.txt"))
+//    val input = parse(readAllText("local/day14_input.txt"))
+//    val input = loadImage("local/day14images/Kodee_Assets_Digital_Kodee-regular-156px-more.png")
     val state: AtomicReference<State> = AtomicReference(0L)
 
     display(state, "Day 14", Dimension(580 * 101 / 103, 580), op = Day14Painter(state.get(), input)::paintOn)
     val isClicked = AtomicReference(false)
     val t = thread {
         while (isClicked.get().not()) {
-            state.updateAndGet { -Random.nextLong(36000000) }
+            state.set(-Random.nextLong(36000000))
             Thread.sleep(10)
         }
     }//.apply { start() }
 
     readln()
+    state.set(0)
     isClicked.set(true)
+    state.set(0)
 
-    val end = 6516 * 1000L
+    val end = part2(input) * 1000L
     val duration = 26000L
     val start = System.currentTimeMillis()
+    state.set(0)
 
     while (System.currentTimeMillis() - start < duration) {
         val elapsed = System.currentTimeMillis() - start
@@ -78,7 +83,7 @@ class Day14Painter(private var prevState: State, val input: List<Pair<Pos, Pos>>
             val offset = random.nextFloat()
             val speed = random.nextFloat()
             val amplitude = random.nextFloat() / 2
-            val brightness = amplitude * sin(offset + counter * speed / 100) + 0.5f
+            val brightness = amplitude * sin(offset + counter * speed / 100000) + 0.5f
             g.color = fgColor2.withBrightness(brightness)
             val (px, py) = p
             val (vx, vy) = v

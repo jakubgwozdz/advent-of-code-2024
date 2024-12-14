@@ -4,6 +4,7 @@ import go
 import linesWithoutLastBlanks
 import measure
 import readAllText
+import kotlin.time.Duration
 
 typealias Pos = Pair<Int, Int> // x, y
 
@@ -46,6 +47,13 @@ fun part2(input: Input, boundary: Pos = 101 to 103) =
             result
         }
         .index
+
+//        Also works:
+//        .indexOfFirst { robots ->
+//            val seen = mutableSetOf<Pos>()
+//            robots.forEach { (p, _) -> if (p in seen) return@indexOfFirst false else seen.add(p) }
+//            return@indexOfFirst true
+//        }
 
 val regex = Regex("""p=(.+),(.+) v=(.+),(.+)""")
 

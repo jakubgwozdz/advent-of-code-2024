@@ -1,5 +1,8 @@
 package day12
 
+import drawStringCentered
+import shifted
+import withAlpha
 import java.awt.BasicStroke
 import java.awt.Color
 import java.awt.Dimension
@@ -222,16 +225,3 @@ private fun Graphics2D.cameraFit(step: Int, width: Int, height: Int) {
 
 fun Pos.scaled(scale: Float) = Point2D.Float((second + 0.5f) * scale, (first + 0.5f) * scale)
 
-fun Graphics2D.drawStringCentered(str: String, at: Point2D) =
-    fontMetrics.getStringBounds(str, this).let {
-        drawString(
-            str,
-            (at.x - it.x - it.width / 2).toFloat(),
-            (at.y - it.y - it.height / 2).toFloat()
-        )
-    }
-
-fun Color.withAlpha(a: Int) = Color(red, green, blue, a)
-fun Color.shifted(id: Int): Color = Color.RGBtoHSB(red, green, blue, null)
-    .let { (h, s, b) -> Color.getHSBColor(h + id * 0.1f + 0.5f, s, 1.0f - (1.0f - b) * 0.4f) }
-    .withAlpha(alpha)

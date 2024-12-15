@@ -15,46 +15,64 @@ fun Grid.findAll(ch: Char): Sequence<Pos> = asSequence().flatMapIndexed { r, lin
 
 operator fun Pos.plus(d: Dir) = Pos(first + d.first, second + d.second)
 
-typealias Input = Pair<Grid, List<Dir>>
-
-data class State(
+data class Input(
     val robot: Pos,
     val boxes: Set<Pos>,
     val walls: Set<Pos>,
     val moves: List<Dir>,
 )
 
-fun part1(input: Input): Int {
-    val initial = State(
-        robot = input.first.findAll('@').single(),
-        boxes = input.first.findAll('O').toSet(),
-        walls = input.first.findAll('#').toSet(),
-        moves = input.second,
-    )
-    val last = generateSequence(initial) { state ->
-        if (state.moves.isEmpty()) null
+fun part1(input: Input): Int = generateSequence(input) { state ->
+    if (state.moves.isEmpty()) null
+    else {
+        val move = state.moves.first()
+        val nextMoves = state.moves.drop(1)
+        val nextRobot = state.robot + move
+        if (nextRobot in state.walls) state.copy(moves = nextMoves)
+        else if (nextRobot !in state.boxes) state.copy(robot = nextRobot, moves = nextMoves)
         else {
-            val move = state.moves.first()
-            val nextMoves = state.moves.drop(1)
-            val nextRobot = state.robot + move
-            if (nextRobot in state.walls) state.copy(moves = nextMoves)
-            else if (nextRobot !in state.boxes) state.copy(robot = nextRobot, moves = nextMoves)
-            else {
-                val nextBox = generateSequence(nextRobot) { pos ->
-                    if (pos in state.boxes) pos + move else null
-                }.last()
-                if (nextBox in state.walls) state.copy(moves = nextMoves)
-                else
-                    State(nextRobot, state.boxes - nextRobot + nextBox, state.walls, nextMoves)
-            }
+            val nextBox = generateSequence(nextRobot) { pos ->
+                if (pos in state.boxes) pos + move else null
+            }.last()
+            if (nextBox in state.walls) state.copy(moves = nextMoves)
+            else
+                Input(nextRobot, state.boxes - nextRobot + nextBox, state.walls, nextMoves)
         }
     }
-//        .onEach(State::print)
-        .last()
-    return last.boxes.sumOf { (r, c) -> r * 100 + c }
 }
+//        .onEach(State::print)
+    .last().boxes.sumOf { (r, c) -> r * 100 + c }
 
-private fun State.print() {
+fun Pos.scaled(): Pos = first * 2 to second
+fun Input.scaled() = Input(
+    robot.scaled(),
+    boxes.map(Pos::scaled).toSet(),
+    walls.map(Pos::scaled).toSet(),
+    moves
+)
+
+fun part2(input: Input): Int = generateSequence(input.scaled()) { state ->
+    if (state.moves.isEmpty()) null
+    else {
+        val move = state.moves.first()
+        val nextMoves = state.moves.drop(1)
+        val nextRobot = state.robot + move
+        if (nextRobot in state.walls) state.copy(moves = nextMoves)
+        else if (nextRobot !in state.boxes) state.copy(robot = nextRobot, moves = nextMoves)
+        else {
+            val nextBox = generateSequence(nextRobot) { pos ->
+                if (pos in state.boxes) pos + move else null
+            }.last()
+            if (nextBox in state.walls) state.copy(moves = nextMoves)
+            else
+                Input(nextRobot, state.boxes - nextRobot + nextBox, state.walls, nextMoves)
+        }
+    }
+}
+//        .onEach(State::print)
+    .last().boxes.sumOf { (r, c) -> r * 100 + c }
+
+private fun Input.print() {
     val width = walls.maxOf { it.second } + 1
     val height = walls.maxOf { it.first } + 1
     repeat(height) { r ->
@@ -72,8 +90,6 @@ private fun State.print() {
     println()
 }
 
-fun part2(input: Input) = part1(input)
-
 fun parse(text: String): Input = text.linesWithoutLastBlanks().let { lines ->
     val grid = lines.takeWhile { it.isNotEmpty() }
     val moves = lines.dropWhile { it.isNotEmpty() }.drop(1).joinToString("").map {
@@ -85,7 +101,12 @@ fun parse(text: String): Input = text.linesWithoutLastBlanks().let { lines ->
             else -> error("unexpected char: $it")
         }
     }
-    grid to moves
+    Input(
+        robot = grid.findAll('@').single(),
+        boxes = grid.findAll('O').toSet(),
+        walls = grid.findAll('#').toSet(),
+        moves = moves,
+    )
 }
 
 val largerTest = """

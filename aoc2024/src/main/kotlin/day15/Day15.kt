@@ -39,21 +39,14 @@ fun part1(input: Input): Int = solve(
 )
 
 fun part2(input: Input): Int = solve(
-    input = input.wide(),
+    input = input.wide(), // same count of boxes etc, just x coordinate is doubled
     robotCollisions = { pos -> listOf(pos, pos.left) },
     boxesCollisions = { pos -> listOf(pos, pos.left, pos.right) }
 )
 
-data class MoveStatus(
-    val dir: Dir,
-    val success: Boolean,
-    val robot: Pair<Pos, Pos>,
-    val movedBoxes: List<Pair<Pos, Pos>>
-)
-
 fun solve(input: Input, robotCollisions: (Pos) -> List<Pos>, boxesCollisions: (Pos) -> List<Pos>) = input.moves
     .fold(State(input.robot, input.boxes)) { state, dir ->
-        makeMove(state, dir, input.walls, robotCollisions, boxesCollisions).second
+        makeMove(state, dir, input.walls, robotCollisions, boxesCollisions).first
     }.boxes.sumOf { (r, c) -> r * 100 + c }
 
 fun makeMove(
@@ -62,63 +55,41 @@ fun makeMove(
     walls: Set<Pos>,
     robotCollisions: (Pos) -> List<Pos>,
     boxesCollisions: (Pos) -> List<Pos>
-): Pair<MoveStatus, State> {
+): Pair<State, Report> {
     val movedBoxes = mutableListOf<Pair<Pos, Pos>>()
 
     val nextRobot = state.robot + dir
     var toCheck = robotCollisions(nextRobot)
-
+    var isLegal = toCheck.none { it in walls }
     var collidingBoxes = toCheck.filter { it in state.boxes }.toSet()
 
-    var repeat = collidingBoxes.isNotEmpty() && toCheck.none { it in walls }
+    var repeat = collidingBoxes.isNotEmpty() && isLegal
     while (repeat) {
         movedBoxes.addAll(collidingBoxes.map { it to it + dir })
 
         toCheck = collidingBoxes.flatMap { boxesCollisions(it + dir) }
+        isLegal = toCheck.none { it in walls }
         collidingBoxes = toCheck.filter { it in state.boxes }.toSet() - collidingBoxes
 
-        repeat = collidingBoxes.isNotEmpty() && toCheck.none { it in walls }
+        repeat = collidingBoxes.isNotEmpty() && isLegal
     }
 
-    val moveStatus = MoveStatus(dir, toCheck.none { it in walls }, state.robot to nextRobot, movedBoxes)
-
-    return moveStatus to when {
-        !moveStatus.success -> state
+    return when {
+        !isLegal -> state
         movedBoxes.isEmpty() -> state.copy(robot = nextRobot)
-        else -> State(nextRobot, state.boxes.afterMove(movedBoxes))
-    }
+        else -> State(
+            nextRobot,
+            state.boxes - movedBoxes.map { (src, _) -> src }.toSet() + movedBoxes.map { (_, dst) -> dst }
+        )
+    } to Report(dir, isLegal, state.robot to nextRobot, movedBoxes) // report is for animation only
 }
 
-private fun Set<Pos>.afterMove(changes: Iterable<Pair<Pos, Pos>>) =
-    this - changes.map { (src, _) -> src }.toSet() + changes.map { (_, dst) -> dst }
-
-private fun Input.print(prev: State, next: State, index: Int) {
-    val width = walls.maxOf { it.second } + 2
-    val height = walls.maxOf { it.first } + 1
-    repeat(height) { r ->
-        repeat(width) { c -> print(prev.wideChar(r to c, walls)) }
-        val move = when (moves[index]) {
-            -1 to 0 -> "  ↑  "
-            1 to 0 -> "  ↓  "
-            0 to -1 -> "  ←  "
-            0 to 1 -> "  →  "
-            else -> error("unexpected move")
-        }
-        print((if (r == 1) move else "     "))
-        repeat(width) { c -> print(next.wideChar(r to c, walls)) }
-        println()
-    }
-    println()
-}
-
-private fun State.wideChar(pos: Pair<Int, Int>, walls: Set<Pos>) = when {
-    pos == robot -> '@'
-    pos in boxes -> '['
-    pos.left in boxes -> ']'
-    pos in walls -> '#'
-    pos.left in walls -> '#'
-    else -> '.'
-}
+data class Report(
+    val dir: Dir,
+    val success: Boolean,
+    val robot: Pair<Pos, Pos>,
+    val movedBoxes: List<Pair<Pos, Pos>>
+)
 
 fun parse(text: String): Input = text.linesWithoutLastBlanks().let { lines ->
     val grid = lines.takeWhile { it.isNotEmpty() }

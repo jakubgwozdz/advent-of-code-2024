@@ -3,7 +3,6 @@ package day15
 import display
 import drawStringCentered
 import interpolated
-import readAllText
 import scaledInv
 import useGraphics
 import withAlpha
@@ -18,7 +17,7 @@ import java.util.concurrent.atomic.AtomicReference
 data class AnimState(
     val before: State,
     val after: State,
-    val moveStatus: MoveStatus,
+    val report: Report,
     val progress: Int,
 )
 
@@ -33,7 +32,7 @@ fun main() {
         AnimState(
             initialValue,
             initialValue,
-            MoveStatus(
+            Report(
                 input.moves.first(),
                 true,
                 input.robot to input.robot,
@@ -49,8 +48,8 @@ fun main() {
 
     input.moves.forEach { move ->
         state.updateAndGet {
-            val (status, after) = makeMove(it.after, move, input.walls, robotCollisions, boxesCollisions)
-            AnimState(it.after, after, status, 0)
+            val (after, report) = makeMove(it.after, move, input.walls, robotCollisions, boxesCollisions)
+            AnimState(it.after, after, report, 0)
         }
         repeat(101) { progress ->
             state.updateAndGet { it.copy(progress = progress) }
@@ -82,24 +81,24 @@ class Day15Video(val input: Input) {
         }
 
         g.color = fgColor2
-        (state.before.boxes - state.moveStatus.movedBoxes.map { it.first }.toSet()).forEach { pos ->
+        (state.before.boxes - state.report.movedBoxes.map { it.first }.toSet()).forEach { pos ->
             drawBox(g, pos, pos, 0f, scale)
         }
 
         g.color = fgColor3
-        state.moveStatus.movedBoxes.forEach { (src, dest) ->
-            drawBox(g, src, dest, if (state.moveStatus.success) state.progress / 100f else 0f, scale)
+        state.report.movedBoxes.forEach { (src, dest) ->
+            drawBox(g, src, dest, if (state.report.success) state.progress / 100f else 0f, scale)
         }
-        state.moveStatus.robot.let { (src, dest) ->
-            drawPlayer(g, src, dest, if (state.moveStatus.success) state.progress / 100f else 0f, scale)
+        state.report.robot.let { (src, dest) ->
+            drawPlayer(g, src, dest, if (state.report.success) state.progress / 100f else 0f, scale)
         }
-        if (!state.moveStatus.success) {
+        if (!state.report.success) {
             g.color = fgColor3a
-            (state.moveStatus.movedBoxes).forEach { (src, dest) ->
+            (state.report.movedBoxes).forEach { (src, dest) ->
                 val p = dest.scaledInv(scale)
                 g.fill(Rectangle2D.Float(p.x-0.5f*scale, p.y-0.5f*scale, scale*2, scale))
             }
-            state.moveStatus.robot.let { (src, dest) ->
+            state.report.robot.let { (src, dest) ->
                 val p = dest.scaledInv(scale)
                 g.fill(Rectangle2D.Float(p.x-0.5f*scale, p.y-0.5f*scale, scale, scale))
             }

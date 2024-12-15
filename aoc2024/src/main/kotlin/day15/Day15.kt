@@ -43,13 +43,19 @@ fun part1(input: Input): Int = generateSequence(input) { state ->
 //        .onEach(State::print)
     .last().boxes.sumOf { (r, c) -> r * 100 + c }
 
-fun Pos.scaled(): Pos = first * 2 to second
+val Pos.scaled: Pos get() = first to second * 2
+val Pos.right: Pos get() = first to second + 1
+val Pos.left: Pos get() = first to second - 1
+
 fun Input.scaled() = Input(
-    robot.scaled(),
+    robot.scaled,
     boxes.map(Pos::scaled).toSet(),
     walls.map(Pos::scaled).toSet(),
     moves
 )
+
+fun Set<Pos>.collidingWide(other: Collection<Pos>): Set<Pos> =
+    intersect(other.toSet()) + intersect(other.map(Pos::right).toSet()) + intersect(other.map(Pos::left).toSet())
 
 fun part2(input: Input): Int = generateSequence(input.scaled()) { state ->
     if (state.moves.isEmpty()) null
@@ -57,37 +63,64 @@ fun part2(input: Input): Int = generateSequence(input.scaled()) { state ->
         val move = state.moves.first()
         val nextMoves = state.moves.drop(1)
         val nextRobot = state.robot + move
-        if (nextRobot in state.walls) state.copy(moves = nextMoves)
-        else if (nextRobot !in state.boxes) state.copy(robot = nextRobot, moves = nextMoves)
-        else {
-            val nextBox = generateSequence(nextRobot) { pos ->
-                if (pos in state.boxes) pos + move else null
-            }.last()
-            if (nextBox in state.walls) state.copy(moves = nextMoves)
-            else
-                Input(nextRobot, state.boxes - nextRobot + nextBox, state.walls, nextMoves)
-        }
+        val boxesCollidingWithNextRobot = listOf(nextRobot, nextRobot.left).filter(state.boxes::contains).toSet()
+        if (state.walls.contains(nextRobot) || state.walls.contains(nextRobot.left)) state.copy(moves = nextMoves)
+        else if (boxesCollidingWithNextRobot.isNotEmpty()) {
+            var isBlocked = false
+            val boxesToMove = buildSet {
+                generateSequence(boxesCollidingWithNextRobot) { colliding ->
+                    addAll(colliding)
+                    val moved = colliding.map { it + move }
+                    val nextColliding = state.boxes.collidingWide(moved) - colliding
+                    when {
+                        state.walls.collidingWide(moved).isNotEmpty() -> null.also { isBlocked = true }
+                        nextColliding.isEmpty() -> null
+                        else -> nextColliding
+                    }
+                }.last()
+            }
+            if (isBlocked) state.copy(moves = nextMoves)
+            else {
+                val nextBoxes = state.boxes - boxesToMove + boxesToMove.map { it + move }
+                Input(nextRobot, nextBoxes, state.walls, nextMoves)
+            }
+        } else state.copy(robot = nextRobot, moves = nextMoves)
     }
 }
-//        .onEach(State::print)
-    .last().boxes.sumOf { (r, c) -> r * 100 + c }
+    .zipWithNext()
+//    .onEach(Pair<Input, Input>::print)
+    .last().second.boxes.sumOf { (r, c) -> r * 100 + c }
 
-private fun Input.print() {
-    val width = walls.maxOf { it.second } + 1
-    val height = walls.maxOf { it.first } + 1
+private fun Pair<Input, Input>.print() {
+    val width = first.walls.maxOf { it.second } + 2
+    val height = first.walls.maxOf { it.first } + 1
     repeat(height) { r ->
         repeat(width) { c ->
-            val pos = r to c
-            when (pos) {
-                robot -> print('@')
-                in boxes -> print('O')
-                in walls -> print('#')
-                else -> print('.')
-            }
+            print(first.wideChar(r to c))
+        }
+        val move = when (first.moves.first()) {
+            -1 to 0 -> "  ↑  "
+            1 to 0 -> "  ↓  "
+            0 to -1 -> "  ←  "
+            0 to 1 -> "  →  "
+            else -> error("unexpected move: ${first.moves.first()}")
+        }
+        print((if (r == 1) move else "     "))
+        repeat(width) { c ->
+            print(second.wideChar(r to c))
         }
         println()
     }
     println()
+}
+
+private fun Input.wideChar(pos: Pair<Int, Int>) = when {
+    pos == robot -> '@'
+    pos in boxes -> '['
+    pos.left in boxes -> ']'
+    pos in walls -> '#'
+    pos.left in walls -> '#'
+    else -> '.'
 }
 
 fun parse(text: String): Input = text.linesWithoutLastBlanks().let { lines ->
@@ -153,8 +186,7 @@ fun main() {
     go(10092) { part1(parse(largerTest)) }
     go(9021) { part2(parse(largerTest)) }
     go(1568399) { part1(input) }
-    go() { part2(input) }
-    TODO()
+    go(1575877) { part2(input) }
     measure(text, parse = ::parse, part1 = ::part1, part2 = ::part2)
 }
 

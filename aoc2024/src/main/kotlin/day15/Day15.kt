@@ -9,12 +9,6 @@ typealias Dir = Pair<Int, Int>
 typealias Pos = Pair<Int, Int>
 typealias Grid = List<String>
 
-fun Grid.findAll(ch: Char): Sequence<Pos> = asSequence().flatMapIndexed { r, line ->
-    line.indices.filter { line[it] == ch }.map { c -> Pos(r, c) }
-}
-
-operator fun Pos.plus(d: Dir) = Pos(first + d.first, second + d.second)
-
 data class Input(
     val robot: Pos,
     val boxes: Set<Pos>,
@@ -22,99 +16,93 @@ data class Input(
     val moves: List<Dir>,
 )
 
-fun part1(input: Input): Int = generateSequence(input) { state ->
-    if (state.moves.isEmpty()) null
-    else {
-        val move = state.moves.first()
-        val nextMoves = state.moves.drop(1)
-        val nextRobot = state.robot + move
-        if (nextRobot in state.walls) state.copy(moves = nextMoves)
-        else if (nextRobot !in state.boxes) state.copy(robot = nextRobot, moves = nextMoves)
-        else {
-            val nextBox = generateSequence(nextRobot) { pos ->
-                if (pos in state.boxes) pos + move else null
-            }.last()
-            if (nextBox in state.walls) state.copy(moves = nextMoves)
-            else
-                Input(nextRobot, state.boxes - nextRobot + nextBox, state.walls, nextMoves)
-        }
-    }
-}
-//        .onEach(State::print)
-    .last().boxes.sumOf { (r, c) -> r * 100 + c }
+data class State(
+    val robot: Pos,
+    val boxes: Set<Pos>,
+)
 
 val Pos.scaled: Pos get() = first to second * 2
 val Pos.right: Pos get() = first to second + 1
 val Pos.left: Pos get() = first to second - 1
 
-fun Input.scaled() = Input(
+fun Input.wide() = Input(
     robot.scaled,
     boxes.map(Pos::scaled).toSet(),
     walls.map(Pos::scaled).toSet(),
     moves
 )
 
-fun Set<Pos>.collidingWide(other: Collection<Pos>): Set<Pos> =
-    intersect(other.toSet()) + intersect(other.map(Pos::right).toSet()) + intersect(other.map(Pos::left).toSet())
+fun part1(input: Input): Int = solve(
+    input = input,
+    robotCollisions = { pos -> listOf(pos) },
+    boxesCollisions = { pos -> listOf(pos) }
+)
 
-fun part2(input: Input): Int = generateSequence(input.scaled()) { state ->
-    if (state.moves.isEmpty()) null
-    else {
-        val move = state.moves.first()
-        val nextMoves = state.moves.drop(1)
-        val nextRobot = state.robot + move
-        val boxesCollidingWithNextRobot = listOf(nextRobot, nextRobot.left).filter(state.boxes::contains).toSet()
-        if (state.walls.contains(nextRobot) || state.walls.contains(nextRobot.left)) state.copy(moves = nextMoves)
-        else if (boxesCollidingWithNextRobot.isNotEmpty()) {
-            var isBlocked = false
-            val boxesToMove = buildSet {
-                generateSequence(boxesCollidingWithNextRobot) { colliding ->
-                    addAll(colliding)
-                    val moved = colliding.map { it + move }
-                    val nextColliding = state.boxes.collidingWide(moved) - colliding
-                    when {
-                        state.walls.collidingWide(moved).isNotEmpty() -> null.also { isBlocked = true }
-                        nextColliding.isEmpty() -> null
-                        else -> nextColliding
-                    }
-                }.last()
-            }
-            if (isBlocked) state.copy(moves = nextMoves)
-            else {
-                val nextBoxes = state.boxes - boxesToMove + boxesToMove.map { it + move }
-                Input(nextRobot, nextBoxes, state.walls, nextMoves)
-            }
-        } else state.copy(robot = nextRobot, moves = nextMoves)
+fun part2(input: Input): Int = solve(
+    input = input.wide(),
+    robotCollisions = { pos -> listOf(pos, pos.left) },
+    boxesCollisions = { pos -> listOf(pos, pos.left, pos.right) }
+)
+
+fun solve(input: Input, robotCollisions: (Pos) -> List<Pos>, boxesCollisions: (Pos) -> List<Pos>) = input.moves
+    .fold(State(input.robot, input.boxes)) { state, move ->
+        makeMove(state, move, input.walls, robotCollisions, boxesCollisions).second
+    }.boxes.sumOf { (r, c) -> r * 100 + c }
+
+private fun makeMove(
+    state: State,
+    move: Dir,
+    walls: Set<Pos>,
+    robotCollisions: (Pos) -> List<Pos>,
+    boxesCollisions: (Pos) -> List<Pos>
+): Pair<List<Pair<Pos, Pos>>, State> {
+    val movedBoxes = mutableListOf<Pair<Pos, Pos>>()
+
+    val nextRobot = state.robot + move
+    var toCheck = robotCollisions(nextRobot)
+
+    var collidingBoxes = toCheck.filter { it in state.boxes }.toSet()
+
+    var repeat = collidingBoxes.isNotEmpty() && toCheck.none { it in walls }
+    while (repeat) {
+        movedBoxes.addAll(collidingBoxes.map { it to it + move })
+
+        toCheck = collidingBoxes.flatMap { boxesCollisions(it + move) }
+        collidingBoxes = toCheck.filter { it in state.boxes }.toSet() - collidingBoxes
+
+        repeat = collidingBoxes.isNotEmpty() && toCheck.none { it in walls }
+    }
+
+    return movedBoxes to when {
+        toCheck.any { it in walls } -> state
+        movedBoxes.isEmpty() -> state.copy(robot = nextRobot)
+        else -> State(nextRobot, state.boxes.afterMove(movedBoxes))
     }
 }
-    .zipWithNext()
-//    .onEach(Pair<Input, Input>::print)
-    .last().second.boxes.sumOf { (r, c) -> r * 100 + c }
 
-private fun Pair<Input, Input>.print() {
-    val width = first.walls.maxOf { it.second } + 2
-    val height = first.walls.maxOf { it.first } + 1
+private fun Set<Pos>.afterMove(changes: Iterable<Pair<Pos, Pos>>) =
+    this - changes.map { (src, _) -> src }.toSet() + changes.map { (_, dst) -> dst }
+
+private fun Input.print(prev: State, next: State, index: Int) {
+    val width = walls.maxOf { it.second } + 2
+    val height = walls.maxOf { it.first } + 1
     repeat(height) { r ->
-        repeat(width) { c ->
-            print(first.wideChar(r to c))
-        }
-        val move = when (first.moves.first()) {
+        repeat(width) { c -> print(prev.wideChar(r to c, walls)) }
+        val move = when (moves[index]) {
             -1 to 0 -> "  ↑  "
             1 to 0 -> "  ↓  "
             0 to -1 -> "  ←  "
             0 to 1 -> "  →  "
-            else -> error("unexpected move: ${first.moves.first()}")
+            else -> error("unexpected move")
         }
         print((if (r == 1) move else "     "))
-        repeat(width) { c ->
-            print(second.wideChar(r to c))
-        }
+        repeat(width) { c -> print(next.wideChar(r to c, walls)) }
         println()
     }
     println()
 }
 
-private fun Input.wideChar(pos: Pair<Int, Int>) = when {
+private fun State.wideChar(pos: Pair<Int, Int>, walls: Set<Pos>) = when {
     pos == robot -> '@'
     pos in boxes -> '['
     pos.left in boxes -> ']'
@@ -189,4 +177,10 @@ fun main() {
     go(1575877) { part2(input) }
     measure(text, parse = ::parse, part1 = ::part1, part2 = ::part2)
 }
+
+fun Grid.findAll(ch: Char): Sequence<Pos> = asSequence().flatMapIndexed { r, line ->
+    line.indices.filter { line[it] == ch }.map { c -> Pos(r, c) }
+}
+
+operator fun Pos.plus(d: Dir) = Pos(first + d.first, second + d.second)
 

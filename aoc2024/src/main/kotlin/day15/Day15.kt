@@ -44,37 +44,46 @@ fun part2(input: Input): Int = solve(
     boxesCollisions = { pos -> listOf(pos, pos.left, pos.right) }
 )
 
+data class MoveStatus(
+    val dir: Dir,
+    val success: Boolean,
+    val robot: Pair<Pos, Pos>,
+    val movedBoxes: List<Pair<Pos, Pos>>
+)
+
 fun solve(input: Input, robotCollisions: (Pos) -> List<Pos>, boxesCollisions: (Pos) -> List<Pos>) = input.moves
-    .fold(State(input.robot, input.boxes)) { state, move ->
-        makeMove(state, move, input.walls, robotCollisions, boxesCollisions).second
+    .fold(State(input.robot, input.boxes)) { state, dir ->
+        makeMove(state, dir, input.walls, robotCollisions, boxesCollisions).second
     }.boxes.sumOf { (r, c) -> r * 100 + c }
 
-private fun makeMove(
+fun makeMove(
     state: State,
-    move: Dir,
+    dir: Dir,
     walls: Set<Pos>,
     robotCollisions: (Pos) -> List<Pos>,
     boxesCollisions: (Pos) -> List<Pos>
-): Pair<List<Pair<Pos, Pos>>, State> {
+): Pair<MoveStatus, State> {
     val movedBoxes = mutableListOf<Pair<Pos, Pos>>()
 
-    val nextRobot = state.robot + move
+    val nextRobot = state.robot + dir
     var toCheck = robotCollisions(nextRobot)
 
     var collidingBoxes = toCheck.filter { it in state.boxes }.toSet()
 
     var repeat = collidingBoxes.isNotEmpty() && toCheck.none { it in walls }
     while (repeat) {
-        movedBoxes.addAll(collidingBoxes.map { it to it + move })
+        movedBoxes.addAll(collidingBoxes.map { it to it + dir })
 
-        toCheck = collidingBoxes.flatMap { boxesCollisions(it + move) }
+        toCheck = collidingBoxes.flatMap { boxesCollisions(it + dir) }
         collidingBoxes = toCheck.filter { it in state.boxes }.toSet() - collidingBoxes
 
         repeat = collidingBoxes.isNotEmpty() && toCheck.none { it in walls }
     }
 
-    return movedBoxes to when {
-        toCheck.any { it in walls } -> state
+    val moveStatus = MoveStatus(dir, toCheck.none { it in walls }, state.robot to nextRobot, movedBoxes)
+
+    return moveStatus to when {
+        !moveStatus.success -> state
         movedBoxes.isEmpty() -> state.copy(robot = nextRobot)
         else -> State(nextRobot, state.boxes.afterMove(movedBoxes))
     }

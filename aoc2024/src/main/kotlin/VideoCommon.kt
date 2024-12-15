@@ -23,6 +23,14 @@ fun Color.withBrightness(b: Float): Color = Color.RGBtoHSB(red, green, blue, nul
 fun Pair<Number, Number>.scaledInv(scale: Float) =
     Point2D.Float((second.toFloat() + 0.5f) * scale, (first.toFloat() + 0.5f) * scale)
 
+fun Pair<Number, Number>.interpolated(dest: Pair<Number, Number>, progress: Float): Pair<Float, Float> {
+    val (x1, y1) = this
+    val (x2, y2) = dest
+    return x1.toFloat() + (x2.toFloat() - x1.toFloat()) * progress to
+            y1.toFloat() + (y2.toFloat() - y1.toFloat()) * progress
+}
+
+
 fun Pair<Number, Number>.scaled(scale: Float) =
     Point2D.Float((first.toFloat() + 0.5f) * scale, (second.toFloat() + 0.5f) * scale)
 

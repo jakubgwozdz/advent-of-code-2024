@@ -45,17 +45,14 @@ fun part1(input: Input): Int {
     val start = State(input.start, Dir.R)
     val endOp = { state: State -> state.pos == input.end }
     val movesOp = { state: State -> cache.movesFor(state) }
-    return shortest(start, endOp, movesOp)
-}
 
-private fun shortest(start: State, endOp: (State) -> Boolean, movesFor: (State) -> List<Pair<State, Int>>): Int {
     val s0 = start to 0
     val visited = mutableMapOf(s0)
     val queue = PriorityQueue(compareBy { it.second }, s0)
     while (queue.isNotEmpty()) {
         val (state, cost) = queue.poll()
         if (endOp(state)) return cost
-        (movesFor(state)).forEach { (next, dc) ->
+        (movesOp(state)).forEach { (next, dc) ->
             val nextCost = cost + dc
             if (next !in visited || visited[next]!! > nextCost) {
                 visited[next] = nextCost
@@ -67,20 +64,25 @@ private fun shortest(start: State, endOp: (State) -> Boolean, movesFor: (State) 
 }
 
 fun part2(input: Input): Int {
+    var totalCost = Int.MAX_VALUE
     val placesVisited = mutableListOf(input.start, input.end)
+
     val cache = Cache(input.places)
     val start = State(input.start, Dir.R)
-    val endOp = { state: State -> state.pos == input.end }
-    val movesOp = { state: State -> cache.movesFor(state) }
 
-    val totalCost = shortest(start, endOp, movesOp)
     val s0 = start to (0 to listOf(start.pos))
     val visited = mutableMapOf(start to s0.second.first)
-    val queue = PriorityQueue(compareBy { it.second.first },s0)
+    val queue = PriorityQueue(compareBy { it.second.first }, s0)
     while (queue.isNotEmpty()) {
         val (state, soFar) = queue.poll()
         val (cost, path) = soFar
-        if (endOp(state)) placesVisited += path
+        if (state.pos == input.end) {
+            if (cost < totalCost) {
+                totalCost = cost
+                placesVisited.clear()
+            }
+            placesVisited += path
+        }
         (cache.movesFor(state)).forEach { (next, dc) ->
             val nextCost = cost + dc
             if (nextCost <= totalCost && (next !in visited || visited[next]!! >= nextCost)) {

@@ -42,13 +42,20 @@ class Cache(val places: Set<Pos>) {
 
 fun part1(input: Input): Int {
     val cache = Cache(input.places)
-    val s0 = State(input.start, Dir.R) to 0
+    val start = State(input.start, Dir.R)
+    val endOp = { state: State -> state.pos == input.end }
+    val movesOp = { state: State -> cache.movesFor(state) }
+    return shortest(start, endOp, movesOp)
+}
+
+private fun shortest(start: State, endOp: (State) -> Boolean, movesFor: (State) -> List<Pair<State, Int>>): Int {
+    val s0 = start to 0
     val visited = mutableMapOf(s0)
     val queue = PriorityQueue(compareBy { it.second }, s0)
     while (queue.isNotEmpty()) {
         val (state, cost) = queue.poll()
-        if (state.pos == input.end) return cost
-        (cache.movesFor(state)).forEach { (next, dc) ->
+        if (endOp(state)) return cost
+        (movesFor(state)).forEach { (next, dc) ->
             val nextCost = cost + dc
             if (next !in visited || visited[next]!! > nextCost) {
                 visited[next] = nextCost
@@ -60,26 +67,29 @@ fun part1(input: Input): Int {
 }
 
 fun part2(input: Input): Int {
-    val placesVisited = mutableSetOf(input.start, input.end)
-    val totalCost = part1(input)
+    val placesVisited = mutableListOf(input.start, input.end)
     val cache = Cache(input.places)
-    val s0 = State(input.start, Dir.R) to (0 to setOf(input.start))
-    val visited = mutableMapOf(s0.first to s0.second.first)
+    val start = State(input.start, Dir.R)
+    val endOp = { state: State -> state.pos == input.end }
+    val movesOp = { state: State -> cache.movesFor(state) }
+
+    val totalCost = shortest(start, endOp, movesOp)
+    val s0 = start to (0 to listOf(start.pos))
+    val visited = mutableMapOf(start to s0.second.first)
     val queue = PriorityQueue(compareBy { it.second.first },s0)
     while (queue.isNotEmpty()) {
-        val (state, path) = queue.poll()
-        val (cost, set) = path
-        if (state.pos == input.end) placesVisited += set
-
+        val (state, soFar) = queue.poll()
+        val (cost, path) = soFar
+        if (endOp(state)) placesVisited += path
         (cache.movesFor(state)).forEach { (next, dc) ->
             val nextCost = cost + dc
             if (nextCost <= totalCost && (next !in visited || visited[next]!! >= nextCost)) {
                 visited[next] = nextCost
-                queue.offer(next to (nextCost to set + next.pos))
+                queue.offer(next to (nextCost to path + next.pos))
             }
         }
     }
-    return placesVisited.size
+    return placesVisited.distinct().size
 }
 
 fun parse(text: String): Input = text.linesWithoutLastBlanks().let { grid ->
@@ -119,34 +129,24 @@ fun main() {
     measure(text, parse = ::parse, part1 = ::part1, part2 = ::part2)
 }
 
-open class Queue<E : Any>(vararg initial: E) {
+class PriorityQueue<E : Any>(val comparator: Comparator<E>, vararg initial: E) {
 
-    protected var queue: ArrayList<E> = ArrayList<E>(11).apply { addAll(initial) }
+    private var backingList = mutableListOf<E>().apply { addAll(initial) }
 
-    val size get() = queue.size
-
+    val size get() = backingList.size
     fun isNotEmpty(): Boolean = size > 0
 
     fun poll(): E {
         check(size > 0)
-        return queue.removeAt(0)
+        return backingList.removeAt(0)
     }
 
-    open fun offer(e: E) {
-        queue.add(e)
-    }
-
-}
-
-
-class PriorityQueue<E : Any>(val comparator: Comparator<E>, vararg initial: E) : Queue<E>(*initial) {
-
-    override fun offer(e: E) {
-        val index = queue.binarySearch(e, comparator).let {
+    fun offer(e: E) {
+        val index = backingList.binarySearch(e, comparator).let {
             if (it < 0) -it - 1 else it
         }
-        queue.add(index, e)
+        backingList.add(index, e)
     }
 
-    override fun toString(): String = queue.toString()
+    override fun toString(): String = backingList.toString()
 }

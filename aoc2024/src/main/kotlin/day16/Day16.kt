@@ -122,12 +122,12 @@ val test2 = """
 """.trimIndent()
 
 fun main() {
-    val text = readAllText("local/day16_input.txt")
+    val text = readAllText("local/day16_input_expensive.txt")
     val input = parse(text)
     go(11048) { part1(parse(test2)) }
-    go(109516) { part1(input) }
+//    go(109516) { part1(input) }
     go(64) { part2(parse(test2)) }
-    go(568) { part2(input) }
+//    go(568) { part2(input) }
     measure(text, parse = ::parse, part1 = ::part1, part2 = ::part2)
 }
 
@@ -150,5 +150,6 @@ class PriorityQueue<E : Any>(val comparator: Comparator<E>, vararg initial: E) {
         backingList.add(index, e)
     }
 
+    fun toList() = backingList.toList()
     override fun toString(): String = backingList.toString()
 }

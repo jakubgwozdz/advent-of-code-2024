@@ -8,7 +8,7 @@ import java.nio.file.Path
 import javax.imageio.ImageIO
 
 fun main() {
-    val path = "local/day14images/Kodee_Assets_Digital_Kodee-regular-156px-more.png"
+    val path = "local/Kodee_Assets_Digital_Kodee-regular-156px-more.png"
     val result: Input = loadImage(path)
     val output= result.joinToString("\n") { (p, v) -> "p=${p.first},${p.second} v=${v.first},${v.second}" }
     Files.writeString(Path.of("local/day14_input_2.txt"), output)

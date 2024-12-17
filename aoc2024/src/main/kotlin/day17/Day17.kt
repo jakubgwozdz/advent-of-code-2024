@@ -11,17 +11,9 @@ data class Input(
     val program: List<Long>,
 )
 
-data class State(
-    val a: Long,
-    val b: Long,
-    val c: Long,
-    val addr: Int,
-    val output: List<Long>,
-)
-
 fun part1(input: Input): String = runProgram(input).joinToString(",")
 
-private fun runProgram(input: Input): List<Long> {
+fun runProgram(input: Input): List<Long> {
     val output = mutableListOf<Long>()
     var addr = 0
     var a = input.a
@@ -36,8 +28,6 @@ private fun runProgram(input: Input): List<Long> {
             else -> throw IllegalArgumentException("$this: Not a combo")
         }
     }
-
-    fun <T> T.log(op: (T) -> String) = this//also { println(op(this)) }
 
     while (addr < input.program.size) {
         val opcode = input.program[addr++]
@@ -57,20 +47,16 @@ private fun runProgram(input: Input): List<Long> {
     return output.toList()
 }
 
-fun Long.toOct(): String = toString(8).padStart(16, '0')
-
 fun part2(input: Input): Long {
     val q = mutableListOf(0L to 0)
     while (q.isNotEmpty()) {
-        val (base, i) = q.removeLast()
+        val (base, i) = q.removeFirst()
         val offset = (input.program.size - i - 1) * 3
         repeat(8) { j ->
             val a = base and (7L shl offset).inv() or (j.toLong() shl offset)
             val output = runProgram(input.copy(a = a))
-            if (output.takeLast(i + 1) == input.program.takeLast(i + 1)) {
-                if (i == input.program.size - 1) return a
-                q.add(a to i + 1)
-            }
+            if (output == input.program) return a
+            else if (output.takeLast(i + 1) == input.program.takeLast(i + 1)) q.add(a to i + 1)
         }
     }
     error("No solution found")
@@ -99,12 +85,15 @@ val test2 = """
 """.trimIndent()
 
 fun main() {
-    go("4,6,3,5,6,3,5,2,1,0", "part1(parse(test1)): ") { part1(parse(test1)) }
-    go(117440L, "part2(parse(test2)): ") { part2(parse(test2)) }
+//    go("4,6,3,5,6,3,5,2,1,0", "part1(parse(test1)): ") { part1(parse(test1)) }
+//    go(117440L, "part2(parse(test2)): ") { part2(parse(test2)) }
     val text = readAllText("local/day17_input.txt")
     val input = parse(text)
+    println(runProgram(input.copy(a=265061364597659)))
+    println(runProgram(input.copy(a=267277567730587)))
+//TODO()
     go("1,4,6,1,6,4,3,0,3", "part1(input): ") { part1(input) }
-    go(null, "part2(input): ") { part2(input) }
+    go(265061364597659, "part2(input): ") { part2(input) }
     measure(text, parse = ::parse, part1 = ::part1, part2 = ::part2)
 }
 

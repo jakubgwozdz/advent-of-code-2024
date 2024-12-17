@@ -48,8 +48,8 @@ fun main() {
 
     input.moves.forEach { move ->
         state.updateAndGet {
-            val (after, report) = makeMove(it.after, move, input.walls, robotCollisions, boxesCollisions)
-            AnimState(it.after, after, report, 0)
+            val (after, info) = makeMove(it.after, move, input.walls, robotCollisions, boxesCollisions)
+            AnimState(it.after, after, info, 0)
         }
         repeat(101) { progress ->
             state.updateAndGet { it.copy(progress = progress) }

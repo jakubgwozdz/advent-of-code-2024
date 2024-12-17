@@ -38,18 +38,19 @@ fun main() {
             val a = base and (7L shl offset).inv() or (j.toLong() shl offset)
             val output = runProgram(input.copy(a = a))
             if (!done) animState.set(AnimState(a, output))
-            sleep(100)
+            sleep(16)
             if (output.takeLast(i + 1) == input.program.takeLast(i + 1)) {
                 if (output == input.program) done = true.also { q.clear() }
                 else if (!done) q.add(a to i + 1)
             }
         }
     }
+    check(animState.get().a==265061364597659)
     // just in case
-    val p2 = part2(input)
-    val p2o = runProgram(input.copy(a = p2))
+//    val p2 = part2(input)
+//    val p2o = runProgram(input.copy(a = p2))
 
-    animState.set(AnimState(p2, p2o))
+//    animState.set(AnimState(p2, p2o))
 
 }
 

@@ -60,25 +60,20 @@ private fun runProgram(input: Input): List<Long> {
 fun Long.toOct(): String = toString(8).padStart(16, '0')
 
 fun part2(input: Input): Long {
-
-    val r = DeepRecursiveFunction<Pair<Long, Int>, List<Long>> { (base, i) ->
-//        println("base: ${base.toOct()} i: $i")
-        val valid = buildList {
-            repeat(8) { j ->
-                val z = input.program.size - i - 1
-                val a = base and (7L shl z * 3).inv() or (j.toLong() shl z * 3)
-                val output = runProgram(input.copy(a = a))
-//                println("${a.toOct()}: $output")
-                if (output.takeLast(i + 1) == input.program.takeLast(i + 1)) {
-                    add(a)
-                }
+    val q = mutableListOf(0L to 0)
+    while (q.isNotEmpty()) {
+        val (base, i) = q.removeLast()
+        val offset = (input.program.size - i - 1) * 3
+        repeat(8) { j ->
+            val a = base and (7L shl offset).inv() or (j.toLong() shl offset)
+            val output = runProgram(input.copy(a = a))
+            if (output.takeLast(i + 1) == input.program.takeLast(i + 1)) {
+                if (i == input.program.size - 1) return a
+                q.add(a to i + 1)
             }
         }
-        if (i == input.program.size - 1) valid
-        else valid.flatMap { callRecursive(it to i + 1) }
-    }.invoke(0L to 0)
-
-    return r.min()
+    }
+    error("No solution found")
 }
 
 val regex = Regex("""Register A: (\d+)\nRegister B: (\d+)\nRegister C: (\d+)\n\nProgram: ([,0-9]+)""")

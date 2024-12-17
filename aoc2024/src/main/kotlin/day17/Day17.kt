@@ -3,7 +3,6 @@ package day17
 import go
 import measure
 import readAllText
-import java.time.Instant
 
 data class Input(
     val a: Long,
@@ -37,43 +36,49 @@ private fun runProgram(input: Input): List<Long> {
             else -> throw IllegalArgumentException("$this: Not a combo")
         }
     }
-    fun <T> T.log(op:(T)->String) = this//also { println(op(this)) }
+
+    fun <T> T.log(op: (T) -> String) = this//also { println(op(this)) }
+
     while (addr < input.program.size) {
         val opcode = input.program[addr++]
         val param = input.program[addr++]
-//        println("$opcode $param; a=$a b=$b c=$c addr=$addr output=$output")
         when (opcode) {
-            0L -> a = a ushr param.combo().toInt().log { "a = a($a) >> $it" }
-            1L -> b = b xor param.log { "b = b($b) xor $it" }
-            2L -> b = param.combo().log { "b = $it % 8" } % 8
-            3L -> if (a != 0L) addr = param.toInt().log { "addr = $it" }
-            4L -> b = b xor c.log { "b = b($b) xor c($c)" }
-            5L -> output.add(param.combo().log { "out $it % 8" } % 8)
-            6L -> b = a ushr param.combo().toInt().log { "b = a($a) >> $it" }
-            7L -> c = a ushr param.combo().toInt().log { "c = a($a) >> $it" }
+            0L -> a = a ushr param.combo().toInt()
+            1L -> b = b xor param
+            2L -> b = param.combo() % 8
+            3L -> if (a != 0L) addr = param.toInt()
+            4L -> b = b xor c
+            5L -> output += param.combo() % 8
+            6L -> b = a ushr param.combo().toInt()
+            7L -> c = a ushr param.combo().toInt()
             else -> throw IllegalArgumentException("Invalid value")
         }
     }
     return output.toList()
 }
-// 130505386750736 too low
+
+fun Long.toOct(): String = toString(8).padStart(16, '0')
+
 fun part2(input: Input): Long {
-    TODO()
-    val powers = IntArray(input.program.size) { 0 }
 
-    repeat(input.program.size) { i ->
-        println("index: $i")
-        (0..7).last {
-            powers[i] = it
-            val a = powers.fold(0L) { acc, j -> acc * 8 + j }
-            val output = runProgram(input.copy(a = a))
-            println("${powers.joinToString("")}: $output")
-//            println("${powers.joinToString("")} ${a.toString(8).padStart(16)}: $output")
-            output.size == input.program.size && output.takeLast(i+1) == input.program.takeLast(i+1)
+    val r = DeepRecursiveFunction<Pair<Long, Int>, List<Long>> { (base, i) ->
+//        println("base: ${base.toOct()} i: $i")
+        val valid = buildList {
+            repeat(8) { j ->
+                val z = input.program.size - i - 1
+                val a = base and (7L shl z * 3).inv() or (j.toLong() shl z * 3)
+                val output = runProgram(input.copy(a = a))
+//                println("${a.toOct()}: $output")
+                if (output.takeLast(i + 1) == input.program.takeLast(i + 1)) {
+                    add(a)
+                }
+            }
         }
-    }
+        if (i == input.program.size - 1) valid
+        else valid.flatMap { callRecursive(it to i + 1) }
+    }.invoke(0L to 0)
 
-    return powers.fold(0L) { acc, j -> acc * 8 + j }
+    return r.min()
 }
 
 val regex = Regex("""Register A: (\d+)\nRegister B: (\d+)\nRegister C: (\d+)\n\nProgram: ([,0-9]+)""")
@@ -99,8 +104,8 @@ val test2 = """
 """.trimIndent()
 
 fun main() {
-    go("4,6,3,5,6,3,5,2,1,0","part1(parse(test1)): ") { part1(parse(test1)) }
-//    go(117440L, "part2(parse(test2)): ") { part2(parse(test2)) }
+    go("4,6,3,5,6,3,5,2,1,0", "part1(parse(test1)): ") { part1(parse(test1)) }
+    go(117440L, "part2(parse(test2)): ") { part2(parse(test2)) }
     val text = readAllText("local/day17_input.txt")
     val input = parse(text)
     go("1,4,6,1,6,4,3,0,3", "part1(input): ") { part1(input) }

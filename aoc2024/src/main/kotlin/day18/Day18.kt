@@ -17,40 +17,31 @@ operator fun Pos.plus(d: Dir): Pos = when (d) {
     Dir.L -> first to second - 1
 }
 
-fun Pos.distance(other: Pos): Int {
-    val (r1, c1) = this
-    val (r2, c2) = other
-    return (c1 - c2) * (c1 - c2) + (r1 - r2) * (r1 - r2)
-}
+fun part1(input: Input): Int = input.take(1024).toSet().let { fallen ->
 
-fun part1(input: Input): Int = input.take(1024).toSet()
-    .let { fallen -> solve(fallen, compareBy { path -> path.size })!!.size - 1 }
-
-fun solve(fallen: Set<Pos>, comparator: Comparator<List<Pos>>): List<Pos>? {
     val start = Pos(0, 0)
     val end = Pos(70, 70)
 
-    val queue = PriorityQueue(comparator, listOf(start))
+    val queue = mutableListOf(start to 0)
     val visited = mutableSetOf(start)
     while (queue.isNotEmpty()) {
-        val p = queue.poll()
-        val last = p.last()
-        if (last == end) return p
+        val (last, count) = queue.removeFirst()
+        if (last == end) return count
         Dir.entries.forEach { dir ->
             val next = last + dir
-            if (next !in fallen &&
-                next !in visited &&
+            if (next !in visited &&
+                next !in fallen &&
                 next.first in 0..end.first && next.second in 0..end.second
             ) {
                 visited += next
-                queue.offer(p + next)
+                queue.add(next to count + 1)
             }
         }
     }
-    return null
+    error("No solution found")
 }
 
-fun Pos.borders() = listOf(
+fun Pos.neighbors() = listOf(
     first - 1 to second,
     first + 1 to second,
     first to second - 1,
@@ -61,45 +52,63 @@ fun Pos.borders() = listOf(
     first + 1 to second + 1
 )
 
-class Continuous {
-    val borders: MutableSet<Pos> = mutableSetOf()
-    var hasUR = false
-    var hasDL = false
-
-    operator fun plusAssign(other: Continuous) {
-        borders += other.borders
-        hasUR = hasUR || other.hasUR
-        hasDL = hasDL || other.hasDL
-    }
-
-    operator fun plusAssign(pos: Pos) {
-        borders.addAll(pos.borders())
-        hasUR = hasUR || pos.first == 0 || pos.second == 70
-        hasDL = hasDL || pos.first == 70 || pos.second == 0
-    }
-}
-
 fun part2(input: Input): String {
-    val sets = mutableListOf<Continuous>()
-    input.forEach { block ->
-        val adjacent = sets.filter { block in it.borders }
-        if (adjacent.isEmpty()) {
-            val newSet = Continuous()
-            sets += newSet
-            newSet += block
-        } else {
-            val first = adjacent.first()
-            adjacent.drop(1).forEach { other ->
-                first += other
-                other.borders.clear()
-            }
-            first += block
-            if (first.hasUR && first.hasDL) return "${block.first},${block.second}"
-            sets.removeIf { it.borders.isEmpty() }
-        }
+    val dropped = mutableSetOf<Pos>()
+
+    val n = 73 // grid size + borders
+    val uf = UnionFind<Pos>(n*n) { (r, c) -> (r + 1) * n + c + 1 }
+
+    fun drop(pos: Pos) {
+        dropped += pos
+        pos.neighbors().forEach { if (it in dropped) uf.union(pos, it) }
     }
+
+    val leftBorder = Pos(-1, 1)
+    (0..70).forEach { i ->
+        drop(Pos(-1, i + 1))
+        drop(Pos(i - 1, 71))
+    }
+
+    val rightBorder = Pos(1, -1)
+    (0..70).forEach { i ->
+        drop(Pos(i + 1, -1))
+        drop(Pos(71, i - 1))
+    }
+
+    fun isBlocked() = uf.find(leftBorder) == uf.find(rightBorder)
+
+    input.forEach {
+        drop(it)
+        if (isBlocked()) return "${it.first},${it.second}"
+    }
+
     error("No solution found")
 }
+
+class UnionFind<T>(size: Int, val indexOp: (T) -> Int) {
+    private val parent = IntArray(size) { it }
+    private val rank = IntArray(size) { 0 }
+
+    fun findByIndex(i: Int): Int {
+        if (parent[i] != i) parent[i] = findByIndex(parent[i])
+        return parent[i]
+    }
+
+    fun find(e: T): Int = findByIndex(indexOp(e))
+
+    fun unionByIndex(i1: Int, i2: Int) {
+        val rootX = findByIndex(i1)
+        val rootY = findByIndex(i2)
+        if (rootX != rootY) when {
+            rank[rootX] > rank[rootY] -> parent[rootY] = rootX
+            rank[rootX] < rank[rootY] -> parent[rootX] = rootY
+            else -> parent[rootY] = rootX.also { rank[rootX]++ }
+        }
+    }
+
+    fun union(e1: T, e2: T) = unionByIndex(indexOp(e1), indexOp(e2))
+}
+
 
 fun parse(text: String) = text.linesWithoutLastBlanks().map { line ->
     val (a, b) = line.split(",").map { it.toInt() }

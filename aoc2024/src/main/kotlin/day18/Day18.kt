@@ -10,7 +10,7 @@ typealias Pos = Pair<Int, Int>
 
 enum class Dir { U, R, D, L }
 
-operator fun Pos.plus(d: Dir):Pos = when (d) {
+operator fun Pos.plus(d: Dir): Pos = when (d) {
     Dir.U -> first - 1 to second
     Dir.R -> first to second + 1
     Dir.D -> first + 1 to second
@@ -50,15 +50,52 @@ fun solve(fallen: Set<Pos>, comparator: Comparator<List<Pos>>): List<Pos>? {
     return null
 }
 
+fun Pos.borders() = listOf(
+    first - 1 to second,
+    first + 1 to second,
+    first to second - 1,
+    first to second + 1,
+    first - 1 to second - 1,
+    first - 1 to second + 1,
+    first + 1 to second - 1,
+    first + 1 to second + 1
+)
+
+class Continuous {
+    val borders: MutableSet<Pos> = mutableSetOf()
+    var hasUR = false
+    var hasDL = false
+
+    operator fun plusAssign(other: Continuous) {
+        borders += other.borders
+        hasUR = hasUR || other.hasUR
+        hasDL = hasDL || other.hasDL
+    }
+
+    operator fun plusAssign(pos: Pos) {
+        borders.addAll(pos.borders())
+        hasUR = hasUR || pos.first == 0 || pos.second == 70
+        hasDL = hasDL || pos.first == 70 || pos.second == 0
+    }
+}
+
 fun part2(input: Input): String {
-    val end = Pos(70, 70)
-    val comparator = compareBy<List<Pos>> { path -> path.size + path.last().distance(end) }
-    val fallen = mutableSetOf<Pos>()
-    var lastPath = solve(fallen, comparator)!!.toSet()
+    val sets = mutableListOf<Continuous>()
     input.forEach { block ->
-        fallen += block
-        if (block in lastPath) {
-            lastPath = solve(fallen, comparator)?.toSet() ?: return "${block.first},${block.second}"
+        val adjacent = sets.filter { block in it.borders }
+        if (adjacent.isEmpty()) {
+            val newSet = Continuous()
+            sets += newSet
+            newSet += block
+        } else {
+            val first = adjacent.first()
+            adjacent.drop(1).forEach { other ->
+                first += other
+                other.borders.clear()
+            }
+            first += block
+            if (first.hasUR && first.hasDL) return "${block.first},${block.second}"
+            sets.removeIf { it.borders.isEmpty() }
         }
     }
     error("No solution found")

@@ -10,7 +10,7 @@ typealias Pos = Pair<Int, Int>
 
 enum class Dir { U, R, D, L }
 
-operator fun Pos.plus(d: Dir) = when (d) {
+operator fun Pos.plus(d: Dir):Pos = when (d) {
     Dir.U -> first - 1 to second
     Dir.R -> first to second + 1
     Dir.D -> first + 1 to second
@@ -24,14 +24,11 @@ fun Pos.distance(other: Pos): Int {
 }
 
 fun part1(input: Input): Int = input.take(1024).toSet()
-    .let { fallen -> solve(fallen)!!.size - 1 }
+    .let { fallen -> solve(fallen, compareBy { path -> path.size })!!.size - 1 }
 
-fun solve(fallen: Set<Pos>): List<Pos>? {
+fun solve(fallen: Set<Pos>, comparator: Comparator<List<Pos>>): List<Pos>? {
     val start = Pos(0, 0)
     val end = Pos(70, 70)
-
-    val comparator = compareBy<List<Pos>> { path -> path.size }
-        .thenBy { path -> path.last().distance(end) }
 
     val queue = PriorityQueue(comparator, listOf(start))
     val visited = mutableSetOf(start)
@@ -54,12 +51,14 @@ fun solve(fallen: Set<Pos>): List<Pos>? {
 }
 
 fun part2(input: Input): String {
+    val end = Pos(70, 70)
+    val comparator = compareBy<List<Pos>> { path -> path.size + path.last().distance(end) }
     val fallen = mutableSetOf<Pos>()
-    var lastPath = solve(fallen)!!.toSet()
+    var lastPath = solve(fallen, comparator)!!.toSet()
     input.forEach { block ->
         fallen += block
         if (block in lastPath) {
-            lastPath = solve(fallen)?.toSet() ?: return "${block.first},${block.second}"
+            lastPath = solve(fallen, comparator)?.toSet() ?: return "${block.first},${block.second}"
         }
     }
     error("No solution found")

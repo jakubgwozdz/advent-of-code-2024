@@ -7,6 +7,7 @@ import readAllText
 
 typealias Input = List<Pos>
 typealias Pos = Pair<Int, Int>
+
 enum class Dir { U, R, D, L }
 
 operator fun Pos.plus(d: Dir) = when (d) {
@@ -15,31 +16,35 @@ operator fun Pos.plus(d: Dir) = when (d) {
     Dir.D -> first + 1 to second
     Dir.L -> first to second - 1
 }
+
 fun Pos.distance(other: Pos): Int {
     val (r1, c1) = this
     val (r2, c2) = other
     return (c1 - c2) * (c1 - c2) + (r1 - r2) * (r1 - r2)
 }
 
-fun part1(input: Input, end: Pos = Pos(70, 70)): Int = input.take(1024).toSet()
-    .let { fallen -> solve(fallen, end)!!.size - 1 }
+fun part1(input: Input): Int = input.take(1024).toSet()
+    .let { fallen -> solve(fallen)!!.size - 1 }
 
-fun solve(fallen: Set<Pos>, end: Pos): List<Pos>? {
+fun solve(fallen: Set<Pos>): List<Pos>? {
     val start = Pos(0, 0)
+    val end = Pos(70, 70)
 
     val comparator = compareBy<List<Pos>> { path -> path.size }
         .thenBy { path -> path.last().distance(end) }
+
     val queue = PriorityQueue(comparator, listOf(start))
     val visited = mutableSetOf(start)
     while (queue.isNotEmpty()) {
         val p = queue.poll()
         val last = p.last()
-        if (last == end) return p//.also { println("Found path: $it") }
+        if (last == end) return p
         Dir.entries.forEach { dir ->
             val next = last + dir
             if (next !in fallen &&
                 next !in visited &&
-                next.first in 0..end.first && next.second in 0..end.second) {
+                next.first in 0..end.first && next.second in 0..end.second
+            ) {
                 visited += next
                 queue.offer(p + next)
             }
@@ -48,13 +53,13 @@ fun solve(fallen: Set<Pos>, end: Pos): List<Pos>? {
     return null
 }
 
-fun part2(input: Input, end: Pos = Pos(70, 70)): String {
+fun part2(input: Input): String {
     val fallen = mutableSetOf<Pos>()
-    var lastPath = solve(fallen, end)!!.toSet()
+    var lastPath = solve(fallen)!!.toSet()
     input.forEach { block ->
         fallen += block
         if (block in lastPath) {
-            lastPath = solve(fallen, end)?.toSet() ?: return "${block.first},${block.second}"
+            lastPath = solve(fallen)?.toSet() ?: return "${block.first},${block.second}"
         }
     }
     error("No solution found")
@@ -65,37 +70,7 @@ fun parse(text: String) = text.linesWithoutLastBlanks().map { line ->
     a to b
 }
 
-val test1 = """
-    5,4
-    4,2
-    4,5
-    3,0
-    2,1
-    6,3
-    2,4
-    1,5
-    0,6
-    3,3
-    2,6
-    5,1
-    1,2
-    5,5
-    2,5
-    6,5
-    1,4
-    0,4
-    6,4
-    1,1
-    6,1
-    1,0
-    0,5
-    1,6
-    2,0
-""".trimIndent()
-
 fun main() {
-    go(22) { part1(parse(test1).take(12), Pos(6, 6)) }
-    go("6,1") { part2(parse(test1), Pos(6, 6)) }
     val text = readAllText("local/day18_input.txt")
     val input = parse(text)
     go(226, "part1(input): ") { part1(input) }

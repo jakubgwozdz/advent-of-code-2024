@@ -12,17 +12,20 @@ fun isPossible(design: String, patterns: List<String>): Boolean = patterns.any {
     it == design || design.startsWith(it) && isPossible(design.substring(it.length), patterns)
 }
 
-fun part2(input: Input): Long = input.designs.sumOf { design -> possible(design, input.patterns) }
-
-fun possible(
-    design: String, patterns: List<String>,
-    cache: MutableMap<String, Long> = mutableMapOf()
-): Long = cache.getOrPut(design) {
-    if (design.isEmpty()) 1 else patterns
-        .filter { design.startsWith(it) }
-        .sumOf { possible(design.substring(it.length), patterns, cache) }
+fun part2(input: Input): Long {
+    val cache = mutableMapOf<String, Long>()
+    return input.designs.sumOf { design -> possible(design, input.patterns, cache) }
 }
 
+fun possible(design: String, patterns: List<String>, cache: MutableMap<String, Long>): Long = cache.getOrPut(design) {
+    patterns.sumOf {
+        when {
+            it == design -> 1
+            design.startsWith(it) -> possible(design.substring(it.length), patterns, cache)
+            else -> 0
+        }
+    }
+}
 
 fun parse(text: String): Input {
     val towels = text.lines().first().split(", ")

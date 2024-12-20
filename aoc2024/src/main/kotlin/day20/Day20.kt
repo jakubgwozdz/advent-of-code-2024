@@ -1,3 +1,5 @@
+@file:Suppress("SameParameterValue")
+
 package day20
 
 import go
@@ -8,65 +10,41 @@ import kotlin.math.absoluteValue
 
 data class Pos(val row: Int, val col: Int)
 
-fun Pos.neighbors1() = sequenceOf(
-    Pos(row - 1, col),
-    Pos(row, col + 1),
-    Pos(row + 1, col),
-    Pos(row, col - 1),
-)
-
-fun Pos.neighbors2() = sequenceOf(
-    Pos(row - 1, col) to Pos(row - 2, col),
-    Pos(row, col + 1) to Pos(row, col + 2),
-    Pos(row + 1, col) to Pos(row + 2, col),
-    Pos(row, col - 1) to Pos(row, col - 2),
-)
-
 data class Input(val start: Pos, val end: Pos, val allowed: Set<Pos>)
-data class Cheat(val src: Pos, val dst: Pos, val dist: Int)
 
-fun dijkstra(input: Input, max: Int = Int.MAX_VALUE, cheat: Cheat? = null): Int? {
-    val queue = mutableListOf(input.start to 0)
-    val visited = mutableSetOf(input.start)
-    while (queue.isNotEmpty()) {
-        val (last, count) = queue.removeFirst()
-        if (count > max) return null
-        if (last == input.end) return count
-        last.neighbors1().forEach { next ->
-            if (next !in visited && next in input.allowed) {
-                visited += next
-                queue.add(next to count + 1)
-            }
-        }
-        if (last == cheat?.src) {
-            queue.add(cheat.dst to count + cheat.dist)
-        }
-    }
-    error("No solution found")
-}
+fun part1(input: Input): Int = solve(input, 100, 2)
 
-fun part1(input: Input, minimumGain: Int = 100): Int {
-    val distToStart = distancesTo(input.start, input.allowed)
-    val distToEnd = distancesTo(input.end, input.allowed)
+fun part2(input: Input): Int = solve(input, 100, 20)
+
+fun solve(input: Input, minimumGain: Int, maxCheat: Int): Int {
+    val distToStart = floodFill(input.start, input.allowed)
+    val distToEnd = floodFill(input.end, input.allowed)
+    val reachables = reachables(2, maxCheat)
 
     val noCheat = distToStart[input.end]!!
-    println("distToStart(end): ${distToStart[input.end]}")
-    println("distToEnd(start): ${distToEnd[input.start]}")
 
     return input.allowed.sumOf { jumpFrom ->
-        input.allowed.count { jumpTo ->
-            (jumpFrom.row - jumpTo.row).absoluteValue + (jumpFrom.col - jumpTo.col).absoluteValue == 2 &&
-                    (distToStart[jumpFrom] ?: 10000000) + (distToEnd[jumpTo] ?: 10000000) <= noCheat - minimumGain - 1
+        val startDist = distToStart[jumpFrom]!!
+        reachables.count { (dr, dc) ->
+            val cheatDist = dr.absoluteValue + dc.absoluteValue
+            val jumpTo = Pos(jumpFrom.row + dr, jumpFrom.col + dc)
+            val endDist = distToEnd[jumpTo]
+            endDist != null && startDist + cheatDist + endDist <= noCheat - minimumGain
         }
     }
 }
 
-private fun distancesTo(pos: Pos, allowed: Set<Pos>) = buildMap {
-    val q = mutableListOf(pos to 0)
-    this[pos] = 0
+fun floodFill(from: Pos, allowed: Set<Pos>) = buildMap {
+    val q = mutableListOf(from to 0)
+    this[from] = 0
     while (q.isNotEmpty()) {
         val (prev, count) = q.removeFirst()
-        prev.neighbors1().forEach { next ->
+        listOf(
+            Pos(prev.row - 1, prev.col),
+            Pos(prev.row, prev.col + 1),
+            Pos(prev.row + 1, prev.col),
+            Pos(prev.row, prev.col - 1),
+        ).forEach { next ->
             if (next !in this && next in allowed) {
                 this[next] = count + 1
                 q.add(next to count + 1)
@@ -75,28 +53,11 @@ private fun distancesTo(pos: Pos, allowed: Set<Pos>) = buildMap {
     }
 }
 
-
-// 2356522 too high
-// 1025367 too high
-fun part2(input: Input, minimumGain: Int = 100): Int {
-    return solve(input, minimumGain, 20)
-}
-
-private fun solve(input: Input, minimumGain: Int, maxCheat: Int): Int {
-    val distToStart = distancesTo(input.start, input.allowed)
-    val distToEnd = distancesTo(input.end, input.allowed)
-
-    val noCheat = distToStart[input.end]!!
-    println("distToStart(end): ${distToStart[input.end]}")
-    println("distToEnd(start): ${distToEnd[input.start]}")
-
-    return input.allowed.sumOf { jumpFrom ->
-        input.allowed.filter { jumpTo ->
-            (jumpFrom.row - jumpTo.row).absoluteValue + (jumpFrom.col - jumpTo.col).absoluteValue <= 20
-        }.count { jumpTo ->
-            val dist = (jumpFrom.row - jumpTo.row).absoluteValue + (jumpFrom.col - jumpTo.col).absoluteValue
-            val len = (distToStart[jumpFrom] ?: 10000000) + (distToEnd[jumpTo] ?: 10000000)
-            len <= noCheat - minimumGain - dist
+fun reachables(minDist: Int, maxDist: Int) = buildList {
+    (-maxDist..maxDist).forEach { dr ->
+        val abs = dr.absoluteValue
+        (-maxDist + abs..maxDist - abs).forEach { dc ->
+            if (abs + dc.absoluteValue >= minDist) add(Pos(dr, dc))
         }
     }
 }
@@ -112,32 +73,11 @@ fun parse(text: String): Input = text.linesWithoutLastBlanks().let { grid ->
     Input(start, end, dots + start + end)
 }
 
-val test = """
-    ###############
-    #...#...#.....#
-    #.#.#.#.#.###.#
-    #S#...#.#.#...#
-    #######.#.#.###
-    #######.#.#...#
-    #######.#.###.#
-    ###..E#...#...#
-    ###.#######.###
-    #...###...#...#
-    #.#####.#.###.#
-    #.#...#.#.#...#
-    #.#.#.#.#.#.###
-    #...#...#...###
-    ###############
-""".trimIndent()
-
 fun main() {
-    go(8) { part1(parse(test), 12) }
-    go(3) { part2(parse(test), 76) }
     val text = readAllText("local/day20_input.txt")
     val input = parse(text)
     go(1293) { part1(input) }
     go(977747) { part2(input) }
-    TODO()
     measure(text, parse = ::parse, part1 = ::part1, part2 = ::part2)
 }
 

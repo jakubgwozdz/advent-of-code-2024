@@ -46,41 +46,59 @@ fun dijkstra(input: Input, max: Int = Int.MAX_VALUE, cheat: Cheat? = null): Int?
 }
 
 fun part1(input: Input, minimumGain: Int = 100): Int {
-    val normal = dijkstra(input)!!
+    val distToStart = distancesTo(input.start, input.allowed)
+    val distToEnd = distancesTo(input.end, input.allowed)
 
-    return input.allowed.asSequence()
-        .flatMap { pos ->
-            pos.neighbors2().filter { (pos1, pos2) -> pos1 !in input.allowed && pos2 in input.allowed }
-                .map { (pos1, pos2) -> Cheat(pos, pos2, 2) }
+    val noCheat = distToStart[input.end]!!
+    println("distToStart(end): ${distToStart[input.end]}")
+    println("distToEnd(start): ${distToEnd[input.start]}")
+
+    return input.allowed.sumOf { jumpFrom ->
+        input.allowed.count { jumpTo ->
+            (jumpFrom.row - jumpTo.row).absoluteValue + (jumpFrom.col - jumpTo.col).absoluteValue == 2 &&
+                    (distToStart[jumpFrom] ?: 10000000) + (distToEnd[jumpTo] ?: 10000000) <= noCheat - minimumGain - 1
         }
-        .count { cheat ->
-            dijkstra(input, normal - minimumGain, cheat) != null
-        }
-
-
+    }
 }
+
+private fun distancesTo(pos: Pos, allowed: Set<Pos>) = buildMap {
+    val q = mutableListOf(pos to 0)
+    this[pos] = 0
+    while (q.isNotEmpty()) {
+        val (prev, count) = q.removeFirst()
+        prev.neighbors1().forEach { next ->
+            if (next !in this && next in allowed) {
+                this[next] = count + 1
+                q.add(next to count + 1)
+            }
+        }
+    }
+}
+
+
 // 2356522 too high
+// 1025367 too high
 fun part2(input: Input, minimumGain: Int = 100): Int {
-    val normal = dijkstra(input)!!
-        .also { println("normal: $it") }
-    return input.allowed.asSequence()
-        .flatMapIndexed { i, pos ->
-            println("$i of " + input.allowed.size)
-            val (r, c) = pos
-            (r - 20..r + 20).flatMap { r1 ->
-                (c - 20..c + 20)
-                    .map { c1 -> r1 to (r1 - r).absoluteValue + (c1 - c).absoluteValue }
-                    .filter { (_, dist) -> dist in 2..20 }
-                    .map { (c1, dist) -> Pos(r1, c1) to dist }
-            }.filter { (pos1) -> pos1 in input.allowed }
-//
-//
-//            pos.neighbors2().filter { (pos1, pos2) -> pos1 !in input.allowed && pos2 in input.allowed }
-                .map { (pos1, dist) -> Cheat(pos, pos1,dist) }
+    return solve(input, minimumGain, 20)
+}
+
+private fun solve(input: Input, minimumGain: Int, maxCheat: Int): Int {
+    val distToStart = distancesTo(input.start, input.allowed)
+    val distToEnd = distancesTo(input.end, input.allowed)
+
+    val noCheat = distToStart[input.end]!!
+    println("distToStart(end): ${distToStart[input.end]}")
+    println("distToEnd(start): ${distToEnd[input.start]}")
+
+    return input.allowed.sumOf { jumpFrom ->
+        input.allowed.filter { jumpTo ->
+            (jumpFrom.row - jumpTo.row).absoluteValue + (jumpFrom.col - jumpTo.col).absoluteValue <= 20
+        }.count { jumpTo ->
+            val dist = (jumpFrom.row - jumpTo.row).absoluteValue + (jumpFrom.col - jumpTo.col).absoluteValue
+            val len = (distToStart[jumpFrom] ?: 10000000) + (distToEnd[jumpTo] ?: 10000000)
+            len <= noCheat - minimumGain - dist
         }
-        .count { cheat ->
-            dijkstra(input, normal - minimumGain, cheat) != null
-        }
+    }
 }
 
 fun List<String>.findAll(ch: Char): Sequence<Pos> = asSequence().flatMapIndexed { r, line ->
@@ -114,10 +132,11 @@ val test = """
 
 fun main() {
     go(8) { part1(parse(test), 12) }
+    go(3) { part2(parse(test), 76) }
     val text = readAllText("local/day20_input.txt")
     val input = parse(text)
     go(1293) { part1(input) }
-    go() { part2(input) }
+    go(977747) { part2(input) }
     TODO()
     measure(text, parse = ::parse, part1 = ::part1, part2 = ::part2)
 }

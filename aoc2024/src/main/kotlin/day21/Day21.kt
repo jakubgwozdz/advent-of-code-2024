@@ -66,49 +66,71 @@ data class KeyPad(val keys: List<Pair<Pos, Char>>, val steps: Map<Pair<Char, Cha
 
 }
 
-fun shortestPath(code: String, intermediate: Int): Int {
-    var seq = numeric.shortestPaths(code)
-    repeat(intermediate) {
-        seq = seq.map { directional.shortestPathSingle(it) }
+sealed interface Node {
+    fun unroll(): Unrolled
+    fun size(): Long
+}
+
+data class Path(val steps: String) : Node {
+    override fun unroll(): Unrolled {
+        val nodes = "A$steps".zipWithNext()
+            .groupingBy { it }.eachCount()
+            .map { (fromTo, count) ->
+                val (from, to) = fromTo
+                val path = directional.shortestPreCalc(from, to)
+                Path(path) to count.toLong()
+            }
+        return Unrolled(nodes)
     }
-    return seq.minOf { it.length }
+
+    override fun size() = steps.length.toLong()
+}
+
+data class Unrolled(val nodes: List<Pair<Path, Long>>) : Node {
+    override fun unroll(): Unrolled {
+        val nodes1 = nodes.map { (node, count) -> node.unroll() to count }
+            .flatMap { (unrolled, count) -> unrolled.nodes.map { it.first to it.second * count } }
+            .groupBy { (path) -> path }
+            .mapValues { (_, list) -> list.sumOf { it.second } }
+            .toList()
+        return Unrolled(nodes1)
+    }
+
+    override fun size(): Long = nodes.sumOf { (node, count) -> node.size() * count }
+}
+
+fun shortestPath(code: String, intermediate: Int): Long {
+    var seq: Node = Path(numeric.shortestPathSingle(code))
+    repeat(intermediate) {
+        seq = seq.unroll()
+    }
+    return seq.size()
 }
 
 fun part1(input: Input) = input.sumOf {
     val numPart = it.substringBefore('A').toInt()
     val shortest = shortestPath(it, 2)
-    println("$it: $shortest * $numPart")
     numPart * shortest
 }
 
 fun part2(input: Input) = input.sumOf {
     val numPart = it.substringBefore('A').toInt()
     val shortest = shortestPath(it, 25)
-    println("$it: $shortest * $numPart")
     numPart * shortest
 }
 
 fun parse(text: String): Input = text.linesWithoutLastBlanks()
 
-val test = """
-    029A
-    980A
-    179A
-    456A
-    379A
-""".trimIndent()
-
 fun main() {
 
-    printCode(directional, "directionalSteps", "A^>v<")
-    printCode(numeric, "numericSteps", "A0123456789")
+//    printCode(directional, "directionalSteps", "A^>v<")
+//    printCode(numeric, "numericSteps", "A0123456789")
 
-    go(126384) { part1(parse(test)) }
     val text = readAllText("local/day21_input.txt")
     val input = parse(text)
     go(157892) { part1(input) }
-    go() { part2(input) }
-    TODO()
+    go(197015606336332) { part2(input) }
+//    TODO()
     measure(text, parse = ::parse, part1 = ::part1, part2 = ::part2)
 }
 
@@ -126,12 +148,6 @@ private fun printCode(keyPad: KeyPad, valName: String, keys: String) {
             val min = byLen.keys.min()
             val path = byLen[min]!!.single()
             println("  ('$from' to '$to') to \"$path\",")
-
-//            println("  ('$from' to '$to') to listOf(")
-//            possible.forEach {
-//                println("    \"${it}\", // ${directional.shortestPaths(it).toList()}")
-//            }
-//            println("  ),")
         }
     }
     println(")")
@@ -296,7 +312,7 @@ val directional = """
     line.mapIndexedNotNull { col, c ->
         if (c == '.') null else Pos(row, col) to c
     }
-}.flatten().let { KeyPad(it, directionalSteps) }.also { println(it) }
+}.flatten().let { KeyPad(it, directionalSteps) }
 
 val numeric = """
     789
@@ -307,5 +323,5 @@ val numeric = """
     line.mapIndexedNotNull { col, c ->
         if (c == '.') null else Pos(row, col) to c
     }
-}.flatten().let { KeyPad(it, numericSteps) }.also { println(it) }
+}.flatten().let { KeyPad(it, numericSteps) }
 

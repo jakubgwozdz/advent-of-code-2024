@@ -1,10 +1,6 @@
 package day22
 
 import go
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.runBlocking
 import linesWithoutLastBlanks
 import measure
 import readAllText
@@ -17,30 +13,24 @@ private fun Long.step1() = shl(6) xor this and 0xFFFFFF
 private fun Long.step2() = shr(5) xor this and 0xFFFFFF
 private fun Long.step3() = shl(11) xor this and 0xFFFFFF
 
-
 fun part1(input: Input) = input.sumOf {
     generateSequence(it, Long::nextSecret).drop(2000).first()
 }
 
-fun part2(input: Input): Long {
+fun part2(input: Input): Long = input.map { seed -> sequences(seed) }
+    .flatMap { it.toList() }.groupBy { it.first }.values
+    .maxOf { l -> l.sumOf { it.second } }
 
-    val sequences = input.mapParallel { seed ->
-        generateSequence(seed) { it.nextSecret() }
-            .map { it % 10 }
-            .take(2001)
-            .windowed(5)
-            .map { it[4] to it.zipWithNext { a, b -> b - a } }
-            .groupBy { it.second }
-            .mapValues { it.value.first().first }
-    }
-
-    return sequences.flatMap { it.keys }
-        .distinct()
-        .mapParallel { diffs -> sequences.sumOf { it[diffs] ?: 0 } }
-        .max()
+private fun sequences(seed: Long) = buildMap {
+    generateSequence(seed, Long::nextSecret)
+        .map { it % 10 }
+        .take(2001)
+        .windowed(5)
+        .forEach { last5 ->
+            val code = last5.zipWithNext { a, b -> b - a }.toString()
+            if (code !in this) put(code, last5.last())
+        }
 }
-
-fun <T, R> List<T>.mapParallel(op: (T) -> R) = runBlocking { map { async(Dispatchers.Default) { op(it) } }.awaitAll() }
 
 fun parse(text: String) = text.linesWithoutLastBlanks().map { it.toLong() }
 

@@ -17,19 +17,24 @@ fun part1(input: Input) = input.sumOf {
     generateSequence(it, Long::nextSecret).drop(2000).first()
 }
 
-fun part2(input: Input): Long = buildMap {
-    input.forEach { seed -> sequences(seed).forEach { (code, value) -> this[code] = (this[code] ?: 0L) + value } }
-}.maxOf { it.value }
-
-private fun sequences(seed: Long) = buildMap {
-    generateSequence(seed, Long::nextSecret)
-        .map { it % 10 }
-        .take(2001)
-        .windowed(5)
-        .forEach { last5 ->
-            val code = last5.zipWithNext { a, b -> b - a }.toString()
-            if (code !in this) put(code, last5.last())
-        }
+fun part2(input: Input): Any {
+    val array = IntArray(19 * 19 * 19 * 19 * 19)
+    val done = BooleanArray(19 * 19 * 19 * 19 * 19)
+    input.forEach { seed ->
+        done.fill(false)
+        generateSequence(seed, Long::nextSecret)
+            .map { it % 10 }
+            .take(2001)
+            .windowed(5)
+            .forEach { last5 ->
+                val code = last5.zipWithNext { a, b -> b - a }.fold(0L) { acc, l -> acc * 19 + l + 9 }.toInt()
+                if (!done[code]) {
+                    done[code] = true
+                    array[code] += last5.last().toInt()
+                }
+            }
+    }
+    return array.max()
 }
 
 fun parse(text: String) = text.linesWithoutLastBlanks().map { it.toLong() }

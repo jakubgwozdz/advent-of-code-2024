@@ -8,51 +8,36 @@ import kotlinx.coroutines.runBlocking
 import linesWithoutLastBlanks
 import measure
 import readAllText
-import java.time.Instant
 
 typealias Input = List<Long>
 
-fun Long.prune() = this and 0xFFFFFF
-fun Long.mix(secret: Long) = this xor secret
-private fun Long.nextSecret(): Long {
-    val s1 = shl(6).mix(this).prune()
-    val s2 = s1.shr(5).mix(s1).prune()
-    val s3 = s2.shl(11).mix(s2).prune()
-    return s3
-}
+private fun Long.nextSecret(): Long = step1().step2().step3()
 
-fun part1(input: Input) = input.sumOf { it ->
-    var secret = it
-    repeat(2000) { secret = secret.nextSecret() }
-    secret
+private fun Long.step1() = shl(6) xor this and 0xFFFFFF
+private fun Long.step2() = shr(5) xor this and 0xFFFFFF
+private fun Long.step3() = shl(11) xor this and 0xFFFFFF
+
+
+fun part1(input: Input) = input.sumOf {
+    generateSequence(it, Long::nextSecret).drop(2000).first()
 }
 
 fun part2(input: Input): Long {
-    var instant = Instant.now()
-    val cached = mutableMapOf<String,Long>()
-    return (0..99999L).maxOf { l ->
-        val d1 = l % 10
-        val d2 = l / 10 % 10
-        val d3 = l / 100 % 10
-        val d4 = l / 1000 % 10
-        val d5 = l / 10000 % 10
-        val diffs = listOf(d5 - d4, d4 - d3, d3 - d2, d2 - d1)
-        val code = diffs.joinToString()
-        if (instant.plusMillis(1000).isBefore(Instant.now())) {
-            println("testing $l $diffs")
-            instant = Instant.now()
-        }
-        cached.getOrPut(code) {
-            input.mapParallel { seed ->
-                generateSequence(seed) { it.nextSecret() }
-                    .map { it % 10 }
-                    .take(2001)
-                    .windowed(5)
-                    .map { it[4] to it.zipWithNext { a, b -> b - a } }
-                    .firstOrNull { (_, d) -> d == diffs }?.first ?: 0L
-            }.sum()
-        }
+
+    val sequences = input.mapParallel { seed ->
+        generateSequence(seed) { it.nextSecret() }
+            .map { it % 10 }
+            .take(2001)
+            .windowed(5)
+            .map { it[4] to it.zipWithNext { a, b -> b - a } }
+            .groupBy { it.second }
+            .mapValues { it.value.first().first }
     }
+
+    return sequences.flatMap { it.keys }
+        .distinct()
+        .mapParallel { diffs -> sequences.sumOf { it[diffs] ?: 0 } }
+        .max()
 }
 
 fun <T, R> List<T>.mapParallel(op: (T) -> R) = runBlocking { map { async(Dispatchers.Default) { op(it) } }.awaitAll() }
@@ -64,9 +49,9 @@ fun main() {
     go(23) { part2(listOf(1, 2, 3, 2024)) }
     val text = readAllText("local/day22_input.txt")
     val input = parse(text)
-    go() { part1(input) }
-    go() { part2(input) }
-    TODO()
+    go(13022553808) { part1(input) }
+    go(1555) { part2(input) }
+//    TODO()
     measure(text, parse = ::parse, part1 = ::part1, part2 = ::part2)
 }
 

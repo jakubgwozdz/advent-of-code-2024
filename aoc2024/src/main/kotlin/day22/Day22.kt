@@ -17,9 +17,9 @@ fun part1(input: Input) = input.sumOf {
     generateSequence(it, Long::nextSecret).drop(2000).first()
 }
 
-fun part2(input: Input): Long = input.map { seed -> sequences(seed) }
-    .flatMap { it.toList() }.groupBy { it.first }.values
-    .maxOf { l -> l.sumOf { it.second } }
+fun part2(input: Input): Long = buildMap {
+    input.forEach { seed -> sequences(seed).forEach { (code, value) -> this[code] = (this[code] ?: 0L) + value } }
+}.maxOf { it.value }
 
 private fun sequences(seed: Long) = buildMap {
     generateSequence(seed, Long::nextSecret)

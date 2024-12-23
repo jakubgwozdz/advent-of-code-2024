@@ -29,11 +29,11 @@ fun part2solve(graph: Input): String {
     graph.forEach { result += listOf(it.key) }
     while (true) {
         val newResult = mutableListOf<List<String>>()
-        result.forEachIndexed { i1, previous ->
-            graph.filter { (v, es) -> v !in previous && previous.all { it in es } }
-                .forEach { newResult += previous + it.key }
+        result.forEach { previous ->
+            val last = previous.last()
+            graph.forEach { (v, es) -> if (v < last && previous.all { it in es }) newResult += previous + v }
         }
-        if (newResult.isEmpty()) return result.first().sorted().joinToString(",")
+        if (newResult.isEmpty()) return result.first().asReversed().joinToString(",")
         result.clear()
         result += newResult.distinct()
     }

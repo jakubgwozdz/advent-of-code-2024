@@ -5,6 +5,8 @@ import linesWithoutLastBlanks
 import measure
 import readAllText
 
+typealias Input = Map<String, Set<String>>
+
 fun part1(input: Input): Int {
     val result = mutableSetOf<Set<String>>()
     input.keys
@@ -22,8 +24,6 @@ fun part1(input: Input): Int {
     return result.size
 }
 
-typealias Input = Map<String, Set<String>>
-
 fun part2solve(graph: Input): String {
     val result = mutableListOf<List<String>>()
     graph.forEach { result += listOf(it.key) }
@@ -39,9 +39,37 @@ fun part2solve(graph: Input): String {
     }
 }
 
-fun part2(graph: Input): String = graph.toList()
+fun part2jakub(graph: Input): String = graph.toList()
     .map { (v, es) -> part2solve(graph.filterKeys { it == v || it in es }) }
     .maxBy { it.length }
+
+class Box<T>(var value: T)
+
+fun <V> bronKerbosch(r: List<V>, p: List<V>, x: List<V>, graph: Map<V, Set<V>>, result: Box<List<V>>) {
+    val pivot = p.firstOrNull() ?: x.firstOrNull()
+    if (pivot != null) {
+        val p1 = p.toMutableList()
+        val x1 = x.toMutableList()
+        (p - graph[pivot]!!).forEach { v ->
+            val es = graph[v]!!
+            bronKerbosch(r + v, p1.filter { it in es }, x1.filter { it in es }, graph, result)
+            p1 -= v
+            x1 += v
+        }
+    }
+    if (result.value.size < r.size) result.value = r
+}
+
+fun part2(graph: Map<String, Set<String>>): Any {
+//    return part2jakub(graph)
+    return part2bronKerbosch(graph)
+}
+
+private fun part2bronKerbosch(graph: Map<String, Set<String>>): String {
+    val result = Box(emptyList<String>())
+    bronKerbosch(emptyList(), graph.keys.toList(), emptyList(), graph, result)
+    return result.value.joinToString(",")
+}
 
 fun parse(text: String): Input = text.linesWithoutLastBlanks()
     .map { it.split("-") }

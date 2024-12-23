@@ -1,3 +1,7 @@
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.runBlocking
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
@@ -39,3 +43,7 @@ fun <T, P0, P1, P2> measure(
     measureTime {  check(p1 == part1(parsed)) }.also { println("Part 1 took $it, result is $p1") }
     measureTime {  check(p2 == part2(parsed)) }.also { println("Part 2 took $it, result is $p2") }
 }
+
+
+fun <T, R> List<T>.mapParallel(op: (T) -> R) = runBlocking { map { async(Dispatchers.Default) { op(it) } }.awaitAll() }
+

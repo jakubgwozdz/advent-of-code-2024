@@ -1,11 +1,8 @@
 package day23
 
 import go
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.runBlocking
 import linesWithoutLastBlanks
+import mapParallel
 import measure
 import readAllText
 
@@ -20,23 +17,27 @@ fun part1(input: Input): Int {
     return result.size
 }
 
-fun <T, R> List<T>.mapParallel(op: (T) -> R) = runBlocking { map { async(Dispatchers.Default) { op(it) } }.awaitAll() }
-
 typealias Input = Map<String, Set<String>>
 
-fun part2(graph: Input): String {
+fun part2solve(graph: Input): String {
     val result = mutableSetOf<Set<String>>()
     graph.keys.forEach { result += setOf(it) }
-    while (result.size > 1) {
+    while (true) {
         val newResult = mutableListOf<Set<String>>()
         result.forEach { s1 ->
             graph.filter { (v, es) -> v !in s1 && es.containsAll(s1) }
                 .forEach { newResult += s1 + it.key }
         }
+        if (newResult.isEmpty()) return result.first().sorted().joinToString(",")
         result.clear()
         result += newResult.distinct()
     }
-    return result.single().sorted().joinToString(",")
+}
+
+fun part2(graph: Input): String {
+    return graph.toList().mapParallel { (v, es) ->
+        part2solve(graph.filterKeys { it == v || it in es })
+    }.maxBy { it.length }
 }
 
 fun parse(text: String): Input = text.linesWithoutLastBlanks()
@@ -45,7 +46,7 @@ fun parse(text: String): Input = text.linesWithoutLastBlanks()
         val v = it.flatMap { (a, b) -> listOf(a, b) }.sorted().distinct()
         val e = it.map { (a, b) -> a to b }.toSet() +
                 it.map { (a, b) -> b to a }.toSet()
-        v.associateWith { v1->v.filter { v2->(v1 to v2) in e }.toSet() }
+        v.associateWith { v1 -> v.filter { v2 -> (v1 to v2) in e }.toSet() }
     }
 
 val example = """

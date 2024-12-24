@@ -7,8 +7,26 @@ import readAllText
 data class Instruction(val input1: String, val op: String, val input2: String)
 data class Input(val initial: Map<String, Boolean>, val instructions: Map<String, Instruction>)
 
-fun part1(input: Input): Any {
-    TODO()
+fun solve(name: String, results: MutableMap<String, Boolean>, instructions: Map<String, Instruction>): Boolean {
+    return results.getOrPut(name) {
+        val instr = instructions[name]!!
+        when (instr.op) {
+            "AND" -> solve(instr.input1, results, instructions) and solve(instr.input2, results, instructions)
+            "OR" -> solve(instr.input1, results, instructions) or solve(instr.input2, results, instructions)
+            "XOR" -> solve(instr.input1, results, instructions) xor solve(instr.input2, results, instructions)
+            else -> error("Unknown op: ${instr.op}")
+        }
+    }
+}
+
+//262651624 wrong
+fun part1(input: Input): Long {
+    val results = input.initial.toMutableMap()
+
+    return input.instructions.keys.filter { it.startsWith('z') }
+        .sortedDescending()
+        .onEach { solve(it, results, input.instructions) }
+        .fold(0L) { acc, name -> acc * 2 + if (results[name]!!) 1 else 0 }
 }
 
 fun part2(input: Input): Any {
@@ -39,12 +57,26 @@ fun parse(text: String): Input {
 fun main() {
     val text = readAllText("local/day24_input.txt")
     val input = parse(text)
+    go(4) { part1(parse(example1)) }
     go(2024) { part1(parse(example2)) }
     go(desc = "Part 1:") { part1(input) }
     go() { part2(input) }
     TODO()
     measure(text, parse = ::parse, part1 = ::part1, part2 = ::part2)
 }
+
+val example1 ="""
+    x00: 1
+    x01: 1
+    x02: 1
+    y00: 0
+    y01: 1
+    y02: 0
+
+    x00 AND y00 -> z00
+    x01 XOR y01 -> z01
+    x02 OR y02 -> z02
+""".trimIndent()
 
 val example2 = """
     x00: 1

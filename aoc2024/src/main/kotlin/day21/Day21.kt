@@ -65,6 +65,7 @@ typealias PathMapping = Map<Pair<Char, Char>, String>
 
 data class Path(val steps: String) {
     fun unroll(mapping: PathMapping) = Unrolled(steps.unrollSteps(mapping))
+    override fun toString(): String = "\"$steps\""
 }
 
 data class Unrolled(val nodes: List<Pair<Path, Long>>) {
@@ -75,6 +76,7 @@ data class Unrolled(val nodes: List<Pair<Path, Long>>) {
     }.let { Unrolled(it.toList()) }
 
     fun size(): Long = nodes.sumOf { (node, count) -> node.steps.length * count }
+    override fun toString() = nodes.joinToString(", ", prefix = "[", postfix = "]") { (path, count) -> "${count}x$path" }
 }
 
 fun String.unrollSteps(mapping: Map<Pair<Char, Char>, String>) = "A$this".zipWithNext()
@@ -96,6 +98,20 @@ fun parse(text: String): Input = text.linesWithoutLastBlanks()
 
 fun main() {
 
+//    val kompas = """
+//        879A
+//        508A
+//        463A
+//        593A
+//        189A
+//    """.trimIndent()
+//    kompas.linesWithoutLastBlanks().forEach { code ->
+//        val v = generateSequence(Path(code).unroll(numericMapping)) { it.unroll(directionalMapping) }
+//            .take(3)
+//        println(v.joinToString(", ", prefix = "$code: ") { it.toString() })
+//    }
+//    TODO()
+//
 //    printCode(directional, "directionalSteps", "A^>v<")
 //    printCode(numeric, "numericSteps", "A0123456789")
 

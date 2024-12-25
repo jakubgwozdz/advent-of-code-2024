@@ -3,75 +3,33 @@ package day24
 import go
 import measure
 import readAllText
-import java.nio.file.Files
-import java.nio.file.Paths
 
-data class Instruction(val input1: String, val op: String, val input2: String) {
+data class Gate(val op: String, val inputs: Set<String>) {
+    val input1 = inputs.minOf { it }
+    val input2 = inputs.maxOf { it }.also { require(it != input1) }
     override fun toString() = "$input1 $op $input2"
 }
 
-sealed interface Operand : Comparable<Operand> {
-    val name: String
-    fun unwind(instructions: Map<String, Instruction>): Operand
-}
+data class Input(val initial: Map<String, Boolean>, val gates: List<Pair<Gate, String>>)
 
-data class Signal(override val name: String) : Operand {
-    override fun unwind(instructions: Map<String, Instruction>) = instructions[name]
-        ?.let { (input1, op, input2) ->
-            val n1 = Signal(input1)
-            val n2 = Signal(input2)
-            if (n1 <= n2) Gate(name, op, n1, n2) else Gate(name, op, n2, n1)
-        } ?: this
-
-    override fun compareTo(other: Operand): Int = when (other) {
-        is Signal -> nameComparator.compare(this, other)
-        is Gate -> -1
-    }
-
-    override fun toString() = name
-}
-
-val nameComparator =
-    compareBy<Signal> { if (it.name.startsWith('x') || it.name.startsWith('y')) it.name else "z${it.name}" }
-
-data class Gate(override val name: String, val op: String, val input1: Operand, val input2: Operand) : Operand {
-    override fun compareTo(other: Operand) = when {
-        other is Gate && this.op == other.op -> input1.compareTo(other.input1)
-        other is Gate -> op.compareTo(other.op)
-        else -> 1
-    }
-
-    override fun unwind(instructions: Map<String, Instruction>): Gate {
-        val n1 = input1.unwind(instructions)
-        val n2 = input2.unwind(instructions)
-        return if (n1 <= n2) Gate(name, op, n1, n2) else Gate(name, op, n2, n1)
-    }
-
-    override fun toString() = "$name($input1 ${op.padStart(3)} $input2)"
-}
-
-
-data class Input(val initial: Map<String, Boolean>, val instructions: Map<String, Instruction>)
-
-fun solve(name: String, results: MutableMap<String, Boolean>, instructions: Map<String, Instruction>): Boolean =
+fun solve(name: String, results: MutableMap<String, Boolean>, circuit: Map<String, Gate>): Boolean =
     results.getOrPut(name) {
-        val instr = instructions[name]!!
-        when (instr.op) {
-            "AND" -> solve(instr.input1, results, instructions) and solve(instr.input2, results, instructions)
-            "OR" -> solve(instr.input1, results, instructions) or solve(instr.input2, results, instructions)
-            "XOR" -> solve(instr.input1, results, instructions) xor solve(instr.input2, results, instructions)
-            else -> error("Unknown op: ${instr.op}")
+        val gate = circuit[name]!!
+        when (gate.op) {
+            "AND" -> solve(gate.input1, results, circuit) and solve(gate.input2, results, circuit)
+            "OR" -> solve(gate.input1, results, circuit) or solve(gate.input2, results, circuit)
+            "XOR" -> solve(gate.input1, results, circuit) xor solve(gate.input2, results, circuit)
+            else -> error("Unknown op: ${gate.op}")
         }
     }
 
 //262651624 wrong
 fun part1(input: Input): Long {
     val results = input.initial.toMutableMap()
-
-    return count('z', results, input.instructions)
+    return count('z', results, input.gates.associate { (gate, out) -> out to gate })
 }
 
-private fun count(char: Char, results: MutableMap<String, Boolean>, map: Map<String, Instruction>) =
+private fun count(char: Char, results: MutableMap<String, Boolean>, map: Map<String, Gate>) =
     (map.keys + results.keys).filter { it.startsWith(char) }
         .sortedDescending()
         .onEach { solve(it, results, map) }
@@ -94,9 +52,8 @@ data class Adder(
 )
 
 fun part2(input: Input): Any {
-    val instructions = input.instructions.toMutableMap()
-    val reverse = instructions.map { (k, v) -> v to k }.toMap()
-    val gates = instructions.keys.toMutableSet()
+    val allGates = input.gates.toMap().toMutableMap()
+    val gatesByOutput = input.gates.associate { it.second to it.first }.toMutableMap()
 
     val swaps: List<Pair<String, String>> = listOf(
         "cnk" to "qwf",
@@ -105,64 +62,60 @@ fun part2(input: Input): Any {
         "z39" to "msq",
     )
 
-    val propagation = buildList {
-        repeat(45) { i ->
-            val id = i.toString().padStart(2, '0')
-            add("x$id")
-            add("y$id")
-            add("z$id")
+    val propagation = buildPropagation(input.gates)
+
+    val groups = propagation.fold(mutableListOf<MutableList<String>>()) { acc, s ->
+        if (s.startsWith("x")) acc.add(mutableListOf())
+        acc.last().add(s)
+        acc
+    }.map { it.toList() }
+    println(groups)
+
+    val adders = groups.map { group ->
+        val a = group[0]
+        val b = group[1]
+        val sum = group.last()
+        check(a.startsWith('x'))
+        check(b == a.replace('x', 'y'))
+        check(sum == b.replace('y', 'z'))
+        val adder = Adder(a, b, sum = sum)
+
+        if (a != "x00") { // full adder
+            adder.cin =
+                group.flatMap { gatesByOutput[it]?.inputs ?: emptySet() }.distinct()
+                    .single { it !in group }
         }
-        add("z45")
-        val toGo = instructions.filterKeys { !it.startsWith('z') }.toList().toMutableList()
-//        while (toGo.isNotEmpty()) {
-//
-//        }
+        group to adder
     }
-    propagation.forEach { println(it) }
+    adders.zipWithNext().forEach { (prev, next) ->
+        prev.second.cout = next.second.cin
+    }
+    adders.forEach { (group, adder) ->
+        println(group.map { "$it=${gatesByOutput[it]}" })
+        val gates = group.filter { it in gatesByOutput }
+            .map { it to gatesByOutput[it]!! }
+        val xor1 = gates.filter { (_, instr) -> instr.valid(adder.a, adder.b) && instr.op == "XOR" }
+            .single().first
+        val and1 = gates.filter { (_, instr) -> instr.valid(adder.a, adder.b) && instr.op == "AND" }
+            .single().first
+        adder.xor1 = xor1
+        adder.and1 = and1
+        if (adder.a != "x00") { // full adder
+//            adder.xor2 = gates.filter { (_, instr) -> instr.valid(xor1, adder.cin!!) && instr.op == "XOR" }
+//                .single().first
+//            adder.and2 = gates.filter { (_, instr) -> instr.valid(xor1, adder.cin!!) && instr.op == "AND" }
+//                .single().first
 
-    val adders = (0..44).map { i ->
-        val id = i.toString().padStart(2, '0')
-        Adder("x$id", "y$id", sum = "z$id")
-    }
-    adders.last().cout = "z45"
-    adders.forEachIndexed { i, adder ->
-        reverse[Instruction(adder.a, "XOR", adder.b)]?.let { xor1 ->
-            adder.xor1 = xor1
-            gates -= xor1
         }
-        reverse[Instruction(adder.a, "AND", adder.b)]?.let { and1 ->
-            adder.and1 = and1
-            gates -= and1
-            if (i == 0) adder.cout = and1
-        }
+        println(adder)
     }
 
-//    check(gates.isEmpty()) { "gates left: $gates" }
 
-    swaps.forEach { (a, b) -> instructions.swap(a, b) }
-
-//    val adders: MutableList<Operand> = (0..45).map { i ->
-//        val id = i.toString().padStart(2, '0')
-//        val z = "z$id"
-//        Signal(z)
-//    }.toMutableList()
-//    adders.forEachIndexed { k, v -> adders[k] = v.unwind(instructions) }
-//    adders.forEachIndexed { k, v -> adders[k] = v.unwind(instructions) }
-//    adders.forEachIndexed { k, v -> adders[k] = v.unwind(instructions) }
-//    adders.forEachIndexed { k, v -> adders[k] = v.unwind(instructions) }
-//    adders.forEachIndexed { k, v -> println(v) }
-
+    swaps.forEach { (a, b) -> gatesByOutput.swap(a, b) }
 
     val results = input.initial.toMutableMap()
 
-
-    val bad = swaps.flatMap { it.toList() }.toSet()
-    graphviz(results, instructions, bad).let {
-        Files.writeString(Paths.get("local/day24.dot"), it)
-        ProcessBuilder().command("dot", "-Tpng", "-o", "local/day24.png", "local/day24.dot").start().waitFor()
-    }
-
-    val diff = diffs(results, instructions)
+    val diff = diffs(results, gatesByOutput)
     if (diff == 0L) {
         return swaps.flatMap { it.toList() }.sorted().joinToString(",")
     }
@@ -170,13 +123,36 @@ fun part2(input: Input): Any {
     error("Wrong")
 }
 
+private fun buildPropagation(gates: List<Pair<Gate, String>>) = buildList {
+    repeat(45) { i ->
+        val id = i.toString().padStart(2, '0')
+        add("x$id")
+        add("y$id")
+        add("z$id")
+    }
+    val toGo = gates.filter { (gate, out) -> out !in this }.toMutableList()
+    while (toGo.isNotEmpty()) {
+        toGo.withIndex().filter { (_, pair) ->
+            val (gate, out) = pair
+            val i1 = this.indexOf(gate.input1)
+            if (i1 >= 0) {
+                val i2 = this.indexOf(gate.input2)
+                if (i2 >= 0) {
+                    add(i1.coerceAtLeast(i2) + 1, out)
+                    true
+                } else false
+            } else false
+        }.asReversed().forEach { (i) -> toGo.removeAt(i) }
+    }
+}
+
 private fun diffs(
     results: MutableMap<String, Boolean>,
-    instructions: Map<String, Instruction>
+    gates: Map<String, Gate>
 ): Long {
-    val x = count('x', results, instructions)
-    val y = count('y', results, instructions)
-    val z = count('z', results, instructions)
+    val x = count('x', results, gates)
+    val y = count('y', results, gates)
+    val z = count('z', results, gates)
     val diff = (x + y) xor z
 
     println("id:       " + (45 downTo 0).joinToString("") { "${it / 10}" })
@@ -190,96 +166,8 @@ private fun diffs(
     return diff
 }
 
-private fun Instruction.valid(i1: String, i2: String) =
+private fun Gate.valid(i1: String, i2: String) =
     input1 == i1 && input2 == i2 || input1 == i2 && input2 == i1
-
-private fun replace(
-    newId: String,
-    oldId: String,
-    instructions: MutableMap<String, Instruction>,
-    translationsTo: MutableMap<String, String>,
-    translationsFrom: MutableMap<String, String>
-) {
-    if (newId in translationsTo) error("Already exists: $newId")
-    translationsFrom[oldId] = newId
-    translationsTo[newId] = oldId
-    instructions[newId] = instructions.remove(oldId)!!
-    instructions.forEach { (k, v) ->
-        if (v.input1 == oldId) {
-            val (input1, input2) = listOf(newId, v.input2).sorted()
-            instructions[k] = v.copy(input1 = input1, input2 = input2)
-        }
-        if (v.input2 == oldId) {
-            val (input1, input2) = listOf(v.input1, newId).sorted()
-            instructions[k] = v.copy(input1 = input1, input2 = input2)
-        }
-    }
-}
-
-private fun graphviz(
-    results: MutableMap<String, Boolean>,
-    instructions: Map<String, Instruction>,
-    bad: Set<String> = emptySet()
-) = buildString {
-    appendLine("digraph G {")
-    instructions.forEach { solve(it.key, results, instructions) }
-    val r = results.keys.toMutableSet()
-    fun appendNode(k: String) {
-        if (k !in r) return
-        //        val bit = if (v) "1" else "0"
-//        val label = "$k = $bit"
-        val shape = when {
-            k.startsWith('x') -> "invtriangle"
-            k.startsWith('y') -> "invtrapezium"
-            k.startsWith('z') -> "doubleoctagon"
-            else -> "ellipse"
-        }
-        val maybeColor = if (k in bad) "color=\"red\"" else ""
-        appendLine("  $k[shape=\"$shape\" $maybeColor];")
-    }
-
-    fun appendGate(gate: Gate) {
-        appendNode(gate.input1.name)
-        r.remove(gate.input1.name)
-        appendNode(gate.input2.name)
-        r.remove(gate.input2.name)
-    }
-    repeat(45) {
-        val n = "x${it.toString().padStart(2, '0')}"
-        appendNode(n)
-        r.remove(n)
-    }
-    repeat(45) {
-        val n = "y${it.toString().padStart(2, '0')}"
-        appendNode(n)
-        r.remove(n)
-    }
-    repeat(46) {
-        val n = "z${it.toString().padStart(2, '0')}"
-        appendNode(n)
-        r.remove(n)
-    }
-    repeat(46) { i ->
-        val id = i.toString().padStart(2, '0')
-        val z = "z$id"
-        val op = Signal(z).unwind(instructions).unwind(instructions).unwind(instructions)
-        appendNode(z)
-        r.remove(z)
-        if (op is Gate) {
-            appendGate(op)
-            if (op.input1 is Gate) appendGate(op.input1)
-            if (op.input2 is Gate) appendGate(op.input2)
-        }
-    }
-    r.forEach { k -> appendNode(k) }
-    instructions.toSortedMap().forEach { (k, v) ->
-        appendLine("  op$k[label=\"${v.op}\" shape=\"none\"];")
-        appendLine("  ${v.input1} -> op$k;")
-        appendLine("  ${v.input2} -> op$k;")
-        appendLine("  op$k -> $k;")
-    }
-    appendLine("}")
-}
 
 private fun <K, V> MutableMap<K, V>.swap(
     s1: K,
@@ -299,17 +187,14 @@ fun parse(text: String): Input {
             val (name, value) = it.split(": ")
             name to (value == "1")
         }.toMap()
-    val instructions = text.lineSequence().dropWhile { it.isNotEmpty() }.drop(1).takeWhile { it.isNotEmpty() }
+    val gates = text.lineSequence().dropWhile { it.isNotEmpty() }.drop(1)
+        .takeWhile { it.isNotEmpty() }
         .map {
             instrRegex.matchEntire(it)!!.destructured.let { (input1, op, input2, output) ->
-                output to Instruction(input1, op, input2)
+                Gate(op, setOf(input1, input2)) to output
             }
-        }.toMap()
-    return Input(initial, instructions)
-//        .also {
-//            it.initial.forEach { (k, v) -> println("$k = $v") }
-//            it.instructions.forEach { (k, v) -> println("$k = $v") }
-//        }
+        }
+    return Input(initial, gates.toList())
 }
 
 fun main() {
@@ -318,7 +203,7 @@ fun main() {
     go(4) { part1(parse(example1)) }
     go(2024) { part1(parse(example2)) }
     go(45213383376616, desc = "Part 1: ") { part1(input) }
-    go("", desc = "Part 2: ") { part2(input) }
+    go("cnk,mps,msq,qwf,vhm,z14,z27,z39", desc = "Part 2: ") { part2(input) }
     TODO()
     measure(text, parse = ::parse, part1 = ::part1, part2 = ::part2)
 }

@@ -53,10 +53,7 @@ fun part2(input: Input): Int {
 }
 
 private fun heights(chunk: List<String>, c: Char) = (0..4).map { col -> chunk.count { row -> row[col] == c } }
-private fun keyCode(heights: List<Int>, base: Int) = heights.let { (h0, h1, h2, h3, h4) ->
-    ((((h0 - 1) * base + h1 - 1) * base + h2 - 1) * base + h3 - 1) * base + h4 - 1
-}
-
+private fun keyCode(heights: List<Int>, base: Int) = heights.fold(0) { acc, i -> acc * base + i - 1 }
 private fun keyCode(chunk: List<String>, c: Char, base: Int) = keyCode(heights(chunk, c), base)
 
 fun parse(text: String): Input = text.lines().chunked(8)

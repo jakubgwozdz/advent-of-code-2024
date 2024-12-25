@@ -29,13 +29,11 @@ fun part1(input: Input): Long {
     return count('z', results, input.gates.associate { (gate, out) -> out to gate })
 }
 
-private fun count(char: Char, results: MutableMap<String, Boolean>, map: Map<String, Gate>) =
+fun count(char: Char, results: MutableMap<String, Boolean>, map: Map<String, Gate>) =
     (map.keys + results.keys).filter { it.startsWith(char) }
         .sortedDescending()
         .onEach { solve(it, results, map) }
         .fold(0L) { acc, name -> acc * 2 + if (results[name]!!) 1 else 0 }
-
-// cnk,ndq,qwf,z14,z27,z28,z39,z40 wrong???
 
 data class Adder(
     val a: String, // A
@@ -54,32 +52,21 @@ data class Adder(
 fun part2(input: Input): Any {
     val gatesByOutput = input.gates.associate { it.second to it.first }
 
-    val swaps = mutableListOf<Pair<String, String>>()
+    val swaps = mutableListOf<String>()
     val propagation = buildPropagation(input.gates)
     val groups = groupPropagation(propagation)
     val adders = buildAdders(groups, gatesByOutput)
-    adders.forEach { (group, adder) ->
-        val gates = group.filter { it in gatesByOutput }.map { gatesByOutput[it]!! to it }
-        if (adder.a != "x00") { // full adder
-            fixFullAdder(adder, gates)?.let { swaps.add(it) }
-        } else { // half adder but we know it's alright :P
-            adder.xor1 = gates.single { (gate) -> gate == Gate("XOR", setOf(adder.a, adder.b)) }
-            adder.and1 = gates.single { (gate) -> gate == Gate("AND", setOf(adder.a, adder.b)) }
-        }
+    adders.forEach { adder ->
+        if (adder.a != "x00") swaps.addAll(fixFullAdder(adder)) // full adder
+        // half-adder we know it's alright :P
     }
-//    swaps.forEach { (a, b) -> gatesByOutput.swap(a, b) }
-//
-//    val results = input.initial.toMutableMap()
-//    val diff = diffs(results, gatesByOutput)
-//    check(diff == 0L) { "Wrong diff: $diff" }
-
-    return swaps.flatMap { it.toList() }.sorted().joinToString(",")
+    return swaps.sorted().joinToString(",")
 }
 
 fun buildAdders(
     groups: MutableList<MutableList<String>>,
     gatesByOutput: Map<String, Gate>
-): List<Pair<MutableList<String>, Adder>> = groups.map { group ->
+): List<Adder> = groups.map { group ->
     val a = group[0]
     val b = group[1]
     val sum = group.last()
@@ -96,7 +83,17 @@ fun buildAdders(
         prev.second.cout = next.second.cin
     }
     last().second.cout = "z45"
-}
+    forEach { (group, adder) ->
+        val gates = group.filter { it in gatesByOutput }.map { gatesByOutput[it]!! to it }
+        adder.xor1 = gates.single { (gate) -> gate == Gate("XOR", setOf(adder.a, adder.b)) }
+        adder.and1 = gates.single { (gate) -> gate == Gate("AND", setOf(adder.a, adder.b)) }
+        if (adder.a != "x00") { // full adder
+            adder.or1 = gates.single { (gate) -> gate.op == "OR" }
+            adder.xor2 = gates.single { (gate) -> gate.op == "XOR" && gate != adder.xor1!!.first }
+            adder.and2 = gates.single { (gate) -> gate.op == "AND" && gate != adder.and1!!.first }
+        }
+    }
+}.map { it.second }
 
 private fun groupPropagation(propagation: List<String>) =
     propagation.fold(mutableListOf<MutableList<String>>()) { acc, s ->
@@ -105,42 +102,16 @@ private fun groupPropagation(propagation: List<String>) =
         acc
     }
 
-private fun fixFullAdder(
-    adder: Adder,
-    gates: List<Pair<Gate, String>>,
-): Pair<String, String>? {
-    var ordered = valid(adder, gates)
-    if (ordered) return null
-    gates.forEachIndexed { i1, pair1 ->
-        gates.subList(i1 + 1, gates.size).forEach { pair2 ->
-            val g2 = gates.map { (g, o) ->
-                when (o) {
-                    pair1.second -> pair2.first to pair1.second
-                    pair2.second -> pair1.first to pair2.second
-                    else -> g to o
-                }
-            }
-            if (valid(adder, g2)) return (pair1.second to pair2.second)
-        }
-    }
-    error("Could not fix adder: $adder")
-}
-
-fun valid(adder: Adder, gates: List<Pair<Gate, String>>): Boolean {
-    val xor1 = gates.singleOrNull { (gate) -> gate == Gate("XOR", setOf(adder.a, adder.b)) }
-    val and1 = gates.singleOrNull { (gate) -> gate == Gate("AND", setOf(adder.a, adder.b)) }
-    if (xor1 == null || and1 == null) return false
-    val xor2 = gates.singleOrNull { (gate) -> gate == Gate("XOR", setOf(xor1.second, adder.cin!!)) }
-    val and2 = gates.singleOrNull { (gate) -> gate == Gate("AND", setOf(xor1.second, adder.cin!!)) }
-    if (xor2?.second != adder.sum || and2 == null) return false
-    val or1 = gates.singleOrNull { (gate) -> gate == Gate("OR", setOf(and1.second, and2.second)) }
-    if (or1?.second != adder.cout!!) return false
-    adder.xor1 = xor1
-    adder.and1 = and1
-    adder.xor2 = xor2
-    adder.and2 = and2
-    adder.or1 = or1
-    return true
+private fun fixFullAdder(adder: Adder): List<String> {
+    val swap = mutableListOf<String>()
+    if (adder.xor1!!.second !in adder.xor2!!.first.inputs) swap.add(adder.xor1!!.second)
+//    if (adder.xor1!!.second !in adder.and2!!.first.inputs) swap.add(adder.xor1!!)
+    if (adder.xor2!!.second != adder.sum) swap.add(adder.xor2!!.second)
+    if (adder.and1!!.second !in adder.or1!!.first.inputs) swap.add(adder.and1!!.second)
+    if (adder.and2!!.second !in adder.or1!!.first.inputs) swap.add(adder.and2!!.second)
+    if (adder.or1!!.second != adder.cout) swap.add(adder.or1!!.second)
+    if (swap.isEmpty()) return emptyList()
+    return swap.distinct()
 }
 
 private fun buildPropagation(gates: List<Pair<Gate, String>>) = buildList {
@@ -150,7 +121,7 @@ private fun buildPropagation(gates: List<Pair<Gate, String>>) = buildList {
         add("y$id")
         add("z$id")
     }
-    val toGo = gates.filter { (gate, out) -> out !in this }.toMutableList()
+    val toGo = gates.filter { (_, out) -> out !in this }.toMutableList()
     while (toGo.isNotEmpty()) {
         toGo.withIndex().filter { (_, pair) ->
             val (gate, out) = pair
@@ -164,27 +135,6 @@ private fun buildPropagation(gates: List<Pair<Gate, String>>) = buildList {
             } else false
         }.asReversed().forEach { (i) -> toGo.removeAt(i) }
     }
-}
-
-private fun diffs(
-    results: MutableMap<String, Boolean>,
-    gates: Map<String, Gate>
-): Long {
-    val x = count('x', results, gates)
-    val y = count('y', results, gates)
-    val z = count('z', results, gates)
-    val diff = (x + y) xor z
-    return diff
-}
-
-private fun <K, V> MutableMap<K, V>.swap(
-    s1: K,
-    s2: K
-): MutableMap<K, V> {
-    val swap = this[s1]!!
-    this[s1] = this[s2]!!
-    this[s2] = swap
-    return this
 }
 
 val instrRegex = Regex("""(.{3}) (OR|XOR|AND) (.{3}) -> (.{3})""")

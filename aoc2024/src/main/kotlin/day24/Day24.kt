@@ -56,40 +56,17 @@ fun part2(input: Input): Any {
 
     val swaps = mutableListOf<Pair<String, String>>()
     val propagation = buildPropagation(input.gates)
-
-    val groups = propagation.fold(mutableListOf<MutableList<String>>()) { acc, s ->
-        if (s.startsWith("x")) acc.add(mutableListOf())
-        acc.last().add(s)
-        acc
-    }
-    val adders =
-        groups.map { group ->
-            val a = group[0]
-            val b = group[1]
-            val sum = group.last()
-            check(a.startsWith('x'))
-            check(b == a.replace('x', 'y'))
-            check(sum == b.replace('y', 'z'))
-            val adder = Adder(a, b, sum = sum)
-            if (a != "x00") { // full adder
-                adder.cin = group.flatMap { gatesByOutput[it]?.inputs ?: emptySet() }.distinct().single { it !in group }
-            }
-            group to adder
-        }
-    adders.zipWithNext().forEach { (prev, next) ->
-        prev.second.cout = next.second.cin
-    }
-    adders.last().second.cout = "z45"
+    val groups = groupPropagation(propagation)
+    val adders = buildAdders(groups, gatesByOutput)
     adders.forEach { (group, adder) ->
         val gates = group.filter { it in gatesByOutput }.map { gatesByOutput[it]!! to it }
         if (adder.a != "x00") { // full adder
-            fixFullAdder(adder, gates, swaps)
+            fixFullAdder(adder, gates)?.let { swaps.add(it) }
         } else { // half adder but we know it's alright :P
             adder.xor1 = gates.single { (gate) -> gate == Gate("XOR", setOf(adder.a, adder.b)) }
             adder.and1 = gates.single { (gate) -> gate == Gate("AND", setOf(adder.a, adder.b)) }
         }
     }
-
 //    swaps.forEach { (a, b) -> gatesByOutput.swap(a, b) }
 //
 //    val results = input.initial.toMutableMap()
@@ -99,29 +76,54 @@ fun part2(input: Input): Any {
     return swaps.flatMap { it.toList() }.sorted().joinToString(",")
 }
 
+fun buildAdders(
+    groups: MutableList<MutableList<String>>,
+    gatesByOutput: Map<String, Gate>
+): List<Pair<MutableList<String>, Adder>> = groups.map { group ->
+    val a = group[0]
+    val b = group[1]
+    val sum = group.last()
+    check(a.startsWith('x'))
+    check(b == a.replace('x', 'y'))
+    check(sum == b.replace('y', 'z'))
+    val adder = Adder(a, b, sum = sum)
+    if (a != "x00") { // full adder
+        adder.cin = group.flatMap { gatesByOutput[it]?.inputs ?: emptySet() }.distinct().single { it !in group }
+    }
+    group to adder
+}.apply {
+    zipWithNext().forEach { (prev, next) ->
+        prev.second.cout = next.second.cin
+    }
+    last().second.cout = "z45"
+}
+
+private fun groupPropagation(propagation: List<String>) =
+    propagation.fold(mutableListOf<MutableList<String>>()) { acc, s ->
+        if (s.startsWith("x")) acc.add(mutableListOf())
+        acc.last().add(s)
+        acc
+    }
+
 private fun fixFullAdder(
     adder: Adder,
     gates: List<Pair<Gate, String>>,
-    swaps: MutableList<Pair<String, String>>
-) {
+): Pair<String, String>? {
     var ordered = valid(adder, gates)
-    if (!ordered) {
-        gates.forEachIndexed { i1, pair1 ->
-            gates.subList(i1 + 1, gates.size).forEach { pair2 ->
-                if (!ordered) {
-                    val g2 = gates.map { (g, o) ->
-                        when (o) {
-                            pair1.second -> pair2.first to pair1.second
-                            pair2.second -> pair1.first to pair2.second
-                            else -> g to o
-                        }
-                    }
-                    ordered = valid(adder, g2)
-                    if (ordered) swaps.add(pair1.second to pair2.second)
+    if (ordered) return null
+    gates.forEachIndexed { i1, pair1 ->
+        gates.subList(i1 + 1, gates.size).forEach { pair2 ->
+            val g2 = gates.map { (g, o) ->
+                when (o) {
+                    pair1.second -> pair2.first to pair1.second
+                    pair2.second -> pair1.first to pair2.second
+                    else -> g to o
                 }
             }
+            if (valid(adder, g2)) return (pair1.second to pair2.second)
         }
     }
+    error("Could not fix adder: $adder")
 }
 
 fun valid(adder: Adder, gates: List<Pair<Gate, String>>): Boolean {

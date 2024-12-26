@@ -8,6 +8,12 @@ data class Gate(val op: String, val inputs: Set<String>) {
     val input1 = inputs.minOf { it }
     val input2 = inputs.maxOf { it }.also { require(it != input1) }
     override fun toString() = "$input1 $op $input2"
+    fun calculate(open:Set<String>) = when (op) {
+        "AND" -> (input1 in open) and (input2 in open)
+        "OR" -> (input1 in open) or (input2 in open)
+        "XOR" -> (input1 in open) xor (input2 in open)
+        else -> error("Unknown op: $op")
+    }
 }
 
 data class Input(val initial: Map<String, Boolean>, val gates: List<Pair<Gate, String>>)
@@ -50,17 +56,22 @@ data class Adder(
 )
 
 fun part2(input: Input): Any {
-    val gatesByOutput = input.gates.associate { it.second to it.first }
-
+    val adders = setUpAdders(input)
     val swaps = mutableListOf<String>()
-    val propagation = buildPropagation(input.gates)
-    val groups = groupPropagation(propagation)
-    val adders = buildAdders(groups, gatesByOutput)
     adders.forEach { adder ->
         if (adder.a != "x00") swaps.addAll(fixFullAdder(adder)) // full adder
         // half-adder we know it's alright :P
     }
     return swaps.sorted().joinToString(",")
+}
+
+fun setUpAdders(input: Input): List<Adder> {
+    val gatesByOutput = input.gates.associate { it.second to it.first }
+
+    val propagation = buildPropagation(input.gates)
+    val groups = groupPropagation(propagation)
+    val adders = buildAdders(groups, gatesByOutput)
+    return adders
 }
 
 fun buildAdders(
@@ -95,7 +106,7 @@ fun buildAdders(
     }
 }.map { it.second }
 
-private fun groupPropagation(propagation: List<String>) =
+fun groupPropagation(propagation: List<String>) =
     propagation.fold(mutableListOf<MutableList<String>>()) { acc, s ->
         if (s.startsWith("x")) acc.add(mutableListOf())
         acc.last().add(s)
@@ -114,7 +125,7 @@ private fun fixFullAdder(adder: Adder): List<String> {
     return swap.distinct()
 }
 
-private fun buildPropagation(gates: List<Pair<Gate, String>>) = buildList {
+fun buildPropagation(gates: List<Pair<Gate, String>>) = buildList {
     repeat(45) { i ->
         val id = i.toString().padStart(2, '0')
         add("x$id")

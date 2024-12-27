@@ -116,7 +116,6 @@ fun groupPropagation(propagation: List<String>) =
 private fun fixFullAdder(adder: Adder): List<String> {
     val swap = mutableListOf<String>()
     if (adder.xor1!!.second !in adder.xor2!!.first.inputs) swap.add(adder.xor1!!.second)
-//    if (adder.xor1!!.second !in adder.and2!!.first.inputs) swap.add(adder.xor1!!)
     if (adder.xor2!!.second != adder.sum) swap.add(adder.xor2!!.second)
     if (adder.and1!!.second !in adder.or1!!.first.inputs) swap.add(adder.and1!!.second)
     if (adder.and2!!.second !in adder.or1!!.first.inputs) swap.add(adder.and2!!.second)

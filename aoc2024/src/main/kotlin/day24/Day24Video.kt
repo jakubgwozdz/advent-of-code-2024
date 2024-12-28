@@ -19,8 +19,10 @@ import java.awt.image.BufferedImage
 import java.lang.Thread.sleep
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.concurrent.thread
-import kotlin.math.absoluteValue
+import kotlin.math.pow
 import kotlin.math.roundToInt
+import kotlin.math.sin
+import kotlin.math.sqrt
 import kotlin.random.Random
 
 data class AnimState(
@@ -69,7 +71,7 @@ fun main() {
                     state.copy(position = state.position + 0.01)
 //                    sleep = sleep - 0.03
                 } else if (state.swapProgress < 1) {
-                    sleep = 0.0
+                    sleep = 10.0
                     state.copy(swapProgress = state.swapProgress + 0.001, swap = swap)
                 } else {
                     sleep = 20.0
@@ -162,7 +164,7 @@ class Day24Video {
         val outputs = mutableMapOf<String, Point2D.Double>()
         val inputs = mutableListOf<Pair<Set<String>, Point2D.Double>>()
         fun addGate(gate: Gate, out: String, row: Int, col: Int) {
-            val x = 0.0 + col * 38
+            val x = 0.0 + col * 38 + if (row > 0) 8 else 0
             val y = 230.0 + row * 60
             gates += gate to Point2D.Double(x, y)
             inputs += gate.inputs to Point2D.Double(x + 4, y)
@@ -175,25 +177,30 @@ class Day24Video {
         adder.or1?.let { (gate, out) -> addGate(gate, out, 2, 0) }
         outputs[adder.a] = Point2D.Double(96.0, 190.0)
         outputs[adder.b] = Point2D.Double(80.0, 200.0)
-        inputs += setOf(adder.sum) to Point2D.Double(88.0, 395.0)
+        val zx = if (adder.sum == "z00") 88.0 else 96.0
+        inputs += setOf(adder.sum) to Point2D.Double(zx, 395.0)
         val cout = adder.cout
         when {
-            cout == "z45" -> inputs += setOf(cout) to Point2D.Double(88.0 - distance, 395.0)
-            cout != null -> inputs += setOf(cout) to Point2D.Double(-10.0, 280.0 - 0.2)
+            cout == "z45" -> inputs += setOf(cout) to Point2D.Double(96.0 - distance, 395.0)
+            cout != null -> inputs += setOf(cout) to Point2D.Double(-2.0, 280.0 - 0.2)
         }
-        adder.cin?.let { outputs[it] = Point2D.Double(distance - 10.0, 280.0 - 0.2) }
+        adder.cin?.let { outputs[it] = Point2D.Double(distance - 2.0, 280.0 - 0.2) }
         if (swap.isNotEmpty() && swap.all { it in outputs }) {
             val x0 = outputs[swap[0]]!!.x
             val x1 = outputs[swap[1]]!!.x
             val y0 = outputs[swap[0]]!!.y
             val y1 = outputs[swap[1]]!!.y
+            val r = sqrt((x1 + x0).pow(2) / 4 + (y1 - y0).pow(2) / 4)
+            val dy = r * sin(swapProgress * Math.PI * 2) / 3
             if (swapProgress < 0.5) {
-                outputs[swap[0]] =
-                    Point2D.Double(x0 + (x1 - x0) * swapProgress * 2, y0 + (y1 - y0) * swapProgress * 2)
+                val x = x0 + (x1 - x0) * swapProgress * 2
+                val y = y0 + (y1 - y0) * swapProgress * 2 + dy
+                outputs[swap[0]] = Point2D.Double(x, y)
             } else {
                 outputs[swap[0]] = Point2D.Double(x1, y1)
-                outputs[swap[1]] =
-                    Point2D.Double(x1 - (x1 - x0) * (swapProgress - 0.5) * 2, y1 - (y1 - y0) * (swapProgress - 0.5) * 2)
+                val x = x1 - (x1 - x0) * (swapProgress - 0.5) * 2
+                val y = y1 - (y1 - y0) * (swapProgress - 0.5) * 2 - dy
+                outputs[swap[1]] = Point2D.Double(x, y)
             }
         }
         drawDigit(xBit, adder.a, 50.0, 0.0)
@@ -215,14 +222,14 @@ class Day24Video {
             moveTo(80.0, 418.0)
             lineTo(80.0, 415.0)
         }
-        drawCircuit(Point2D.Double(88.0, 390.0), Point2D.Double(80.0, 415.0)) // adder.sum part 2
+        drawCircuit(Point2D.Double(zx, 390.0), Point2D.Double(80.0, 415.0)) // adder.sum part 2
         if (adder.cout == "z45") {
             drawCircuit { // adder.cout
                 moveTo(80.0 - distance, 418.0)
                 lineTo(80.0 - distance, 415.0)
             }
             drawCircuit(
-                Point2D.Double(88.0 - distance, 395.0),
+                Point2D.Double(zx - distance, 395.0),
                 Point2D.Double(80.0 - distance, 415.0)
             ) // adder.sum part 2
         }
@@ -233,7 +240,7 @@ class Day24Video {
                 .mapIndexed { index, out -> Point2D.Double(pos.x + 16.0 * index, pos.y) to out }
         }.groupBy { it.second }.mapValues { (_, list) -> list.map { it.first } }
             .forEach { (to, froms) ->
-                froms.forEach { from -> drawCircuit(from, to.second, to.first in swap) }
+                froms.forEach { from -> drawCircuit(from, to.second, to.first == swap.getOrNull(1) || to.first == swap.getOrNull(0) && swapProgress<0.5) }
                 if (froms.size > 1) {
                     val xs = (froms.map { it.x } + to.second.x).sorted().drop(1).dropLast(1)
                     xs.forEach { x -> drawConnect(x, to.second.y) }
@@ -305,7 +312,8 @@ class Day24Video {
             moveTo(from.x, from.y)
             val dy = to.y - from.y
             val dx = to.x - from.x
-            val firstH = dy.absoluteValue < 10.1
+            val firstH = false
+//            val firstH = dy.absoluteValue < 10.1
 //            if (firstH) lineTo(to.x, from.y) else lineTo(from.x, to.y)
 //            lineTo(to.x, to.y)
             val c = 0.25

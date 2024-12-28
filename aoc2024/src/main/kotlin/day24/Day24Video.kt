@@ -28,13 +28,14 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlin.random.Random
 
-enum class Stage { WAIT, ZOOMIN, SCROLL, FIX, ZOOMOUT, END }
-
 private const val MAX_ZOOM = 7.5
 private const val INIT_POS = 22.0 * MAX_ZOOM //2.9
-private const val MIN_ZOOM_SPEED = 0.001
+private const val MIN_SPEED = 0.001
+private const val ZOOM_SPEED = 0.01
+private const val SCROOL_SPEED = 0.05
+private const val FIX_SPEED = 0.005
 private const val FIRST_POS = 0.0
-private const val LAST_POS = 47.0
+private const val LAST_POS = 45.0
 
 data class AnimState(
     val adders: List<Adder> = emptyList(),
@@ -82,32 +83,84 @@ fun main() {
 //        sleep(10000)
         println("Zooming in")
         var zooming = true
-        animSpeed.set(MIN_ZOOM_SPEED)
+        animSpeed.set(MIN_SPEED)
         while (zooming) {
             anim.updateAndGet { state ->
                 val zoom = (state.zoom - animSpeed.get()).coerceAtLeast(1.0).let { if (it < 1.0001) 1.0 else it }
                 zooming = zoom > 1
-                animSpeed.set((sin((zoom - 1) * PI / (MAX_ZOOM - 1)) * 0.01).coerceAtLeast(MIN_ZOOM_SPEED))
+                animSpeed.set((sin((zoom - 1) * PI / (MAX_ZOOM - 1)) * ZOOM_SPEED).coerceAtLeast(MIN_SPEED / 10))
                 state.copy(zoom = zoom, position = linearInterpolation(1.0, MAX_ZOOM, FIRST_POS, INIT_POS, zoom))
             }
             sleep(8)
         }
+        sleep(500)
 
-        val stops = setOf(FIRST_POS, LAST_POS) +
-                adders.withIndex().filter { (_, adder) -> fixFullAdder(adder).isNotEmpty() }
-                    .map { (i, _) -> i.toDouble() }
-        stops.sorted().zipWithNext().forEach {
-
+        val stops = (setOf(FIRST_POS to (null to emptyList<String>()), LAST_POS to (null to emptyList())) +
+                adders.mapIndexed { i, v -> i.toDouble() to v }.drop(1)
+                    .map { (i, adder) -> i to (adder to fixFullAdder(adder)) }
+                    .filter { (_, v) -> v.second.isNotEmpty() })
+            .sortedBy { (i, _) -> i }.zipWithNext()
+            .map { (a, b) -> a.first to b.first to b.second }
+        stops.forEach { (range, adderWithSwap) ->
+            val (start, end) = range
+            println("Scrolling from $start to $end")
+            var scrolling = true
+            animSpeed.set(MIN_SPEED)
+            while (scrolling) {
+                anim.updateAndGet { state ->
+                    val position = (state.position + animSpeed.get()).coerceIn(start, end)
+                    scrolling = position < end
+                    animSpeed.set((sin((position - start) * PI / (end - start)) * SCROOL_SPEED).coerceAtLeast(MIN_SPEED))
+                    state.copy(position = position)
+                }
+                sleep(8)
+            }
+            val (current, swap) = adderWithSwap
+            if (current != null && swap.isNotEmpty()) {
+                println("Fixing full adder")
+                var fixing = true
+                animSpeed.set(MIN_SPEED)
+                anim.updateAndGet { state -> state.copy(swap = swap, swapProgress = 0.0) }
+                while (fixing) {
+                    anim.updateAndGet { state ->
+                        val swapProgress = (state.swapProgress + animSpeed.get()).coerceAtMost(1.0)
+                        fixing = swapProgress < 1
+                        animSpeed.set((sin(swapProgress * PI) * FIX_SPEED).coerceAtLeast(MIN_SPEED))
+                        state.copy(swapProgress = swapProgress)
+                    }
+                    sleep(8)
+                }
+                anim.updateAndGet { state ->
+                    state.copy(
+                        adders = state.adders.map { adder ->
+                            adder.takeIf { it != current } ?: with(current) {
+                                copy(
+                                    and1 = and1?.replaceOutput(swap),
+                                    xor1 = xor1?.replaceOutput(swap),
+                                    and2 = and2?.replaceOutput(swap),
+                                    xor2 = xor2?.replaceOutput(swap),
+                                    or1 = or1?.replaceOutput(swap),
+                                )
+                            }
+                        },
+                        z = state.adders.calculate(state.x, state.y),
+                        swap = emptyList(),
+                        swapProgress = 0.0,
+                    )
+                }
+            }
 
         }
 
+        sleep(500)
+
         zooming = true
-        animSpeed.set(MIN_ZOOM_SPEED)
+        animSpeed.set(MIN_SPEED / 10)
         while (zooming) {
             anim.updateAndGet { state ->
-                val zoom = (state.zoom + animSpeed.get()).coerceAtMost(MAX_ZOOM).let { if (it < 1.0001) 1.0 else it }
+                val zoom = (state.zoom + animSpeed.get()).coerceAtMost(MAX_ZOOM)//.let { if (it < 1.0001) 1.0 else it }
                 zooming = zoom < MAX_ZOOM
-                animSpeed.set((sin((zoom - 1) * PI / (MAX_ZOOM - 1)) * 0.01).coerceAtLeast(MIN_ZOOM_SPEED))
+                animSpeed.set((sin((zoom - 1) * PI / (MAX_ZOOM - 1)) * ZOOM_SPEED).coerceAtLeast(MIN_SPEED / 10))
                 state.copy(zoom = zoom, position = linearInterpolation(1.0, MAX_ZOOM, LAST_POS, INIT_POS, zoom))
             }
             sleep(8)
@@ -132,7 +185,7 @@ private fun scroll(state: AnimState, animSpeed: AtomicReference<Double>): AnimSt
         ?: current?.takeIf { it.cin != null }?.let { fixFullAdder(it) }
         ?: emptyList()
     return if (swap.isEmpty()) {
-        state.copy(position = state.position + 0.01)
+        state//.copy(position = state.position + 0.01)
     } else if (state.swapProgress < 1) {
         state.copy(swapProgress = state.swapProgress + 0.001, swap = swap)
     } else {

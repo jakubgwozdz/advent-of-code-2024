@@ -72,7 +72,7 @@ fun main() {
                     sleep = 0.0
                     state.copy(swapProgress = state.swapProgress + 0.001, swap = swap)
                 } else {
-                    sleep = 200.0
+                    sleep = 20.0
                     state.copy(
                         adders = state.adders.map { adder ->
                             adder.takeIf { it != current } ?: with(current!!) {
@@ -175,10 +175,10 @@ class Day24Video {
         adder.or1?.let { (gate, out) -> addGate(gate, out, 2, 0) }
         outputs[adder.a] = Point2D.Double(96.0, 190.0)
         outputs[adder.b] = Point2D.Double(80.0, 200.0)
-        inputs += setOf(adder.sum) to Point2D.Double(88.0, 415.0)
+        inputs += setOf(adder.sum) to Point2D.Double(88.0, 395.0)
         val cout = adder.cout
         when {
-            cout == "z45" -> inputs += setOf(cout) to Point2D.Double(88.0 - distance, 415.0)
+            cout == "z45" -> inputs += setOf(cout) to Point2D.Double(88.0 - distance, 395.0)
             cout != null -> inputs += setOf(cout) to Point2D.Double(-10.0, 280.0 - 0.2)
         }
         adder.cin?.let { outputs[it] = Point2D.Double(distance - 10.0, 280.0 - 0.2) }
@@ -187,22 +187,25 @@ class Day24Video {
             val x1 = outputs[swap[1]]!!.x
             val y0 = outputs[swap[0]]!!.y
             val y1 = outputs[swap[1]]!!.y
-            outputs[swap[0]] =
-                Point2D.Double(x0 + (x1 - x0) * swapProgress, y0 + (y1 - y0) * swapProgress)
-            outputs[swap[1]] =
-                Point2D.Double(x1 - (x1 - x0) * swapProgress, y1 - (y1 - y0) * swapProgress)
+            if (swapProgress < 0.5) {
+                outputs[swap[0]] =
+                    Point2D.Double(x0 + (x1 - x0) * swapProgress * 2, y0 + (y1 - y0) * swapProgress * 2)
+            } else {
+                outputs[swap[0]] = Point2D.Double(x1, y1)
+                outputs[swap[1]] =
+                    Point2D.Double(x1 - (x1 - x0) * (swapProgress - 0.5) * 2, y1 - (y1 - y0) * (swapProgress - 0.5) * 2)
+            }
         }
         drawDigit(xBit, adder.a, 50.0, 0.0)
         drawDigit(yBit, adder.b, 50.0, 100.0)
         drawDigit(zBit, adder.sum, 50.0, 420.0, error)
         if (adder.cout == "z45") drawDigit(cBit, adder.cout!!, 50.0 - distance, 420.0)
 
-        drawCircuit { // adder.a
+        drawCircuit { // adder.a part1
             moveTo(80.0, 75.0)
             lineTo(80.0, 80.0)
-            lineTo(96.0, 80.0)
-            lineTo(96.0, 190.0)
         }
+        drawCircuit(Point2D.Double(96.0, 190.0), Point2D.Double(80.0, 80.0)) // adder.a part2
         drawCircuit { // adder.b
             moveTo(80.0, 175.0)
             lineTo(80.0, 180.0)
@@ -211,12 +214,17 @@ class Day24Video {
         drawCircuit { // adder.sum
             moveTo(80.0, 418.0)
             lineTo(80.0, 415.0)
-            lineTo(88.0, 415.0)
         }
-        if (adder.cout == "z45") drawCircuit { // adder.cout
-            moveTo(80.0 - distance, 418.0)
-            lineTo(80.0 - distance, 415.0)
-            lineTo(88.0 - distance, 415.0)
+        drawCircuit(Point2D.Double(88.0, 390.0), Point2D.Double(80.0, 415.0)) // adder.sum part 2
+        if (adder.cout == "z45") {
+            drawCircuit { // adder.cout
+                moveTo(80.0 - distance, 418.0)
+                lineTo(80.0 - distance, 415.0)
+            }
+            drawCircuit(
+                Point2D.Double(88.0 - distance, 395.0),
+                Point2D.Double(80.0 - distance, 415.0)
+            ) // adder.sum part 2
         }
         gates.forEach { (gate, pos) -> drawGate(gate, pos.x, pos.y) }
         inputs.flatMap { (names, pos) ->
@@ -229,6 +237,9 @@ class Day24Video {
                 if (froms.size > 1) {
                     val xs = (froms.map { it.x } + to.second.x).sorted().drop(1).dropLast(1)
                     xs.forEach { x -> drawConnect(x, to.second.y) }
+                }
+                if (to.first in swap) {
+                    drawConnect(to.second.x, to.second.y)
                 }
             }
     }
@@ -295,9 +306,20 @@ class Day24Video {
             val dy = to.y - from.y
             val dx = to.x - from.x
             val firstH = dy.absoluteValue < 10.1
-            if (firstH) lineTo(to.x, from.y) else lineTo(from.x, to.y)
-//            if (firstH)
-            lineTo(to.x, to.y)
+//            if (firstH) lineTo(to.x, from.y) else lineTo(from.x, to.y)
+//            lineTo(to.x, to.y)
+            val c = 0.25
+            if (firstH) curveTo(
+                from.x + (1 + c) * dx, from.y,
+                from.x + dx, from.y - dy * c,
+                from.x + dx, from.y + dy
+            ) else curveTo(
+                from.x, from.y + (1 + c) * dy,
+                from.x - dx * c, from.y + dy,
+                from.x + dx, from.y + dy
+            )
+
+            //            if (firstH)
 //            else curveTo(from.x + dx / 3, to.y - 10, to.x - dx / 3, to.y - 10, to.x, to.y)
         }
 
@@ -318,8 +340,6 @@ class Day24Video {
         fill(outline)
         color = c
         draw(outline)
-
-
     }
 }
 

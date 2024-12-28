@@ -37,19 +37,19 @@ fun main() {
     val input = parse(readAllText("local/day24_input.txt"))
 
     val adders = setUpAdders(input)
-    val x = Random.nextBits(30).toLong() shl 15 or Random.nextBits(15).toLong()
-    val y = Random.nextBits(30).toLong() shl 15 or Random.nextBits(15).toLong()
-    val z = adders.calculate(x, y)
-    val diff = (x + y) xor z
-
-    println("id:       " + (45 downTo 0).joinToString("") { "${it / 10}" })
-    println("          " + (45 downTo 0).joinToString("") { "${it % 10}" })
-    println("x:         ${x.toString(2).padStart(45, '0')}")
-    println("y:         ${y.toString(2).padStart(45, '0')}")
-    println("(x+y):    ${(x + y).toString(2).padStart(46, '0')}")
-    println("z:        ${z.toString(2).padStart(46, '0')}")
-
-    println("diff:     ${diff.toString(2).padStart(46, '0').replace("0", " ").replace("1", "^")}")
+//    val x = Random.nextBits(30).toLong() shl 15 or Random.nextBits(15).toLong()
+//    val y = Random.nextBits(30).toLong() shl 15 or Random.nextBits(15).toLong()
+//    val z = adders.calculate(x, y)
+//    val diff = (x + y) xor z
+//
+//    println("id:       " + (45 downTo 0).joinToString("") { "${it / 10}" })
+//    println("          " + (45 downTo 0).joinToString("") { "${it % 10}" })
+//    println("x:         ${x.toString(2).padStart(45, '0')}")
+//    println("y:         ${y.toString(2).padStart(45, '0')}")
+//    println("(x+y):    ${(x + y).toString(2).padStart(46, '0')}")
+//    println("z:        ${z.toString(2).padStart(46, '0')}")
+//
+//    println("diff:     ${diff.toString(2).padStart(46, '0').replace("0", " ").replace("1", "^")}")
 
 
     val anim = AtomicReference(AnimState(adders))
@@ -158,72 +158,71 @@ class Day24Video {
         swap: List<String>,
         swapProgress: Double
     ) {
-        val gates = mutableListOf<Pair<Gate, Point2D.Float>>()
-        val outputs = mutableMapOf<String, Point2D.Float>()
-        val inputs = mutableListOf<Pair<Set<String>, Point2D.Float>>()
+        val gates = mutableListOf<Pair<Gate, Point2D.Double>>()
+        val outputs = mutableMapOf<String, Point2D.Double>()
+        val inputs = mutableListOf<Pair<Set<String>, Point2D.Double>>()
         fun addGate(gate: Gate, out: String, row: Int, col: Int) {
-            val x = 0f + col * 38
-            val y = 230f + row * 60
-            gates += gate to Point2D.Float(x, y)
-            inputs += gate.inputs to Point2D.Float(x + 4, y)
-            outputs[out] = Point2D.Float(x + 12, y + 40 + (2 - col) * 2)
+            val x = 0.0 + col * 38
+            val y = 230.0 + row * 60
+            gates += gate to Point2D.Double(x, y)
+            inputs += gate.inputs to Point2D.Double(x + 4, y)
+            outputs[out] = Point2D.Double(x + 12, y + 40 + (2 - col) * 2)
         }
         adder.and1?.let { (gate, out) -> addGate(gate, out, 0, 0) }
         adder.xor1?.let { (gate, out) -> addGate(gate, out, 0, 2) }
         adder.and2?.let { (gate, out) -> addGate(gate, out, 1, 1) }
         adder.xor2?.let { (gate, out) -> addGate(gate, out, 1, 2) }
         adder.or1?.let { (gate, out) -> addGate(gate, out, 2, 0) }
-        outputs[adder.a] = Point2D.Float(96f, 190f)
-        outputs[adder.b] = Point2D.Float(80f, 200f)
-        inputs += setOf(adder.sum) to Point2D.Float(88f, 415f)
+        outputs[adder.a] = Point2D.Double(96.0, 190.0)
+        outputs[adder.b] = Point2D.Double(80.0, 200.0)
+        inputs += setOf(adder.sum) to Point2D.Double(88.0, 415.0)
         val cout = adder.cout
         when {
-            cout == "z45" -> inputs += setOf(cout) to Point2D.Float(88f - distance.toFloat(), 415f)
-            cout != null -> inputs += setOf(cout) to Point2D.Float(-10f, 280f - 0.2f)
+            cout == "z45" -> inputs += setOf(cout) to Point2D.Double(88.0 - distance.toDouble(), 415.0)
+            cout != null -> inputs += setOf(cout) to Point2D.Double(-10.0, 280.0 - 0.2)
         }
-        adder.cin?.let { outputs[it] = Point2D.Float(distance.toFloat() - 10f, 280f - 0.2f) }
+        adder.cin?.let { outputs[it] = Point2D.Double(distance.toDouble() - 10.0, 280.0 - 0.2) }
         if (swap.isNotEmpty() && swap.all { it in outputs }) {
             val x0 = outputs[swap[0]]!!.x
             val x1 = outputs[swap[1]]!!.x
             val y0 = outputs[swap[0]]!!.y
             val y1 = outputs[swap[1]]!!.y
             outputs[swap[0]] =
-                Point2D.Float(x0 + (x1 - x0) * swapProgress.toFloat(), y0 + (y1 - y0) * swapProgress.toFloat())
+                Point2D.Double(x0 + (x1 - x0) * swapProgress.toDouble(), y0 + (y1 - y0) * swapProgress.toDouble())
             outputs[swap[1]] =
-                Point2D.Float(x1 - (x1 - x0) * swapProgress.toFloat(), y1 - (y1 - y0) * swapProgress.toFloat())
+                Point2D.Double(x1 - (x1 - x0) * swapProgress.toDouble(), y1 - (y1 - y0) * swapProgress.toDouble())
         }
-        drawDigit(xBit, adder.a, 50f, 0f)
-        drawDigit(yBit, adder.b, 50f, 100f)
-        drawDigit(zBit, adder.sum, 50f, 420f, error)
-        if (adder.cout == "z45") drawDigit(cBit, adder.cout!!, 50f - distance.toFloat(), 420f)
+        drawDigit(xBit, adder.a, 50.0, 0.0)
+        drawDigit(yBit, adder.b, 50.0, 100.0)
+        drawDigit(zBit, adder.sum, 50.0, 420.0, error)
+        if (adder.cout == "z45") drawDigit(cBit, adder.cout!!, 50.0 - distance.toDouble(), 420.0)
 
         drawCircuit { // adder.a
-            moveTo(80f, 75f)
-            lineTo(80f, 80f)
-            lineTo(96f, 80f)
-            lineTo(96f, 190f)
+            moveTo(80.0, 75.0)
+            lineTo(80.0, 80.0)
+            lineTo(96.0, 80.0)
+            lineTo(96.0, 190.0)
         }
         drawCircuit { // adder.b
-            moveTo(80f, 175f)
-            lineTo(80f, 180f)
-            lineTo(80f, 200f)
+            moveTo(80.0, 175.0)
+            lineTo(80.0, 180.0)
+            lineTo(80.0, 200.0)
         }
         drawCircuit { // adder.sum
-            moveTo(80f, 418f)
-            lineTo(80f, 415f)
-            lineTo(88f, 415f)
+            moveTo(80.0, 418.0)
+            lineTo(80.0, 415.0)
+            lineTo(88.0, 415.0)
         }
         if (adder.cout == "z45") drawCircuit { // adder.cout
-            moveTo(80f - distance.toFloat(), 418f)
-            lineTo(80f - distance.toFloat(), 415f)
-            lineTo(88f - distance.toFloat(), 415f)
+            moveTo(80.0 - distance.toDouble(), 418.0)
+            lineTo(80.0 - distance.toDouble(), 415.0)
+            lineTo(88.0 - distance.toDouble(), 415.0)
         }
         gates.forEach { (gate, pos) -> drawGate(gate, pos.x, pos.y) }
         inputs.flatMap { (names, pos) ->
             names.map { outputs[it]!! }
-                .sortedBy { it.x }.mapIndexed { index, out ->
-                    Point2D.Float(pos.x + 16f * index, pos.y) to out
-                }
+                .sortedBy { it.x }
+                .mapIndexed { index, out -> Point2D.Double(pos.x + 16.0 * index, pos.y) to out }
         }.groupBy { it.second }.mapValues { (_, list) -> list.map { it.first } }
             .forEach { (to, froms) ->
                 froms.forEach { from -> drawCircuit(from, to) }
@@ -234,12 +233,12 @@ class Day24Video {
             }
     }
 
-    private fun Graphics2D.drawGate(gate: Gate, x: Float, y: Float) {
+    private fun Graphics2D.drawGate(gate: Gate, x: Double, y: Double) {
         color = fgColor
         val tr = AffineTransform.getTranslateInstance(x.toDouble(), y.toDouble())
         transform(tr)
 
-        val gatePath = Path2D.Float()
+        val gatePath = Path2D.Double()
 
         when (gate.op) {
             "AND" -> gatePath.andGate()
@@ -247,37 +246,37 @@ class Day24Video {
             "XOR" -> gatePath.xorGate()
         }
         draw(gatePath)
-        draw(Line2D.Float(4f, 0f, 4f, 7f))
-        draw(Line2D.Float(20f, 0f, 20f, 7f))
-        draw(Line2D.Float(12f, 34f, 12f, if (x > 60) 40f else if (x > 30) 42f else 44f))
+        draw(Line2D.Double(4.0, 0.0, 4.0, 7.0))
+        draw(Line2D.Double(20.0, 0.0, 20.0, 7.0))
+        draw(Line2D.Double(12.0, 34.0, 12.0, if (x > 60) 40.0 else if (x > 30) 42.0 else 44.0))
         transform(tr.createInverse())
     }
 
-    private fun Path2D.Float.orGate() {
-        moveTo(0f, 3f)
-        curveTo(4f, 10f, 20f, 10f, 24f, 3f)
-        lineTo(24f, 10f)
-        curveTo(24f, 24f, 24f, 24f, 12f, 34f)
-        curveTo(0f, 24f, 0f, 24f, 0f, 10f)
-        lineTo(0f, 3f)
+    private fun Path2D.Double.orGate() {
+        moveTo(0.0, 3.0)
+        curveTo(4.0, 10.0, 20.0, 10.0, 24.0, 3.0)
+        lineTo(24.0, 10.0)
+        curveTo(24.0, 24.0, 24.0, 24.0, 12.0, 34.0)
+        curveTo(0.0, 24.0, 0.0, 24.0, 0.0, 10.0)
+        lineTo(0.0, 3.0)
     }
 
-    private fun Path2D.Float.xorGate() {
-        moveTo(0f, 0f)
-        curveTo(4f, 7f, 20f, 7f, 24f, 0f)
+    private fun Path2D.Double.xorGate() {
+        moveTo(0.0, 0.0)
+        curveTo(4.0, 7.0, 20.0, 7.0, 24.0, 0.0)
         orGate()
     }
 
-    private fun Path2D.Float.andGate() {
-        moveTo(0f, 7f)
-        lineTo(0f, 10f)
-        append(Arc2D.Float(0f, 10f, 24f, 24f, 180f, 180f, Arc2D.OPEN), true)
-        lineTo(24f, 7f)
-        lineTo(0f, 7f)
+    private fun Path2D.Double.andGate() {
+        moveTo(0.0, 7.0)
+        lineTo(0.0, 10.0)
+        append(Arc2D.Double(0.0, 10.0, 24.0, 24.0, 180.0, 180.0, Arc2D.OPEN), true)
+        lineTo(24.0, 7.0)
+        lineTo(0.0, 7.0)
     }
 
-    private fun Graphics2D.drawCircuit(pathOp: Path2D.Float.() -> Unit) {
-        val path = Path2D.Float().apply(pathOp)
+    private fun Graphics2D.drawCircuit(pathOp: Path2D.Double.() -> Unit) {
+        val path = Path2D.Double().apply(pathOp)
         color = bgColor
         stroke = BasicStroke(3f)
         draw(path)
@@ -286,35 +285,36 @@ class Day24Video {
         draw(path)
     }
 
-    private fun Graphics2D.drawConnect(x: Float, y: Float) {
-        fill(Ellipse2D.Float(x - 3, y - 3, 6f, 6f))
+    private fun Graphics2D.drawConnect(x: Double, y: Double) {
+        fill(Ellipse2D.Double(x - 3, y - 3, 6.0, 6.0))
     }
 
-    private fun Graphics2D.drawCircuit(from: Point2D.Float, to: Point2D.Float) =
+    private fun Graphics2D.drawCircuit(from: Point2D.Double, to: Point2D.Double) =
         drawCircuit {
             moveTo(from.x, from.y)
             val dy = to.y - from.y
             val dx = to.x - from.x
-            val firstH = dy.absoluteValue < 10.1f
+            val firstH = dy.absoluteValue < 10.1
             if (firstH) lineTo(to.x, from.y) else lineTo(from.x, to.y)
 //            if (firstH)
             lineTo(to.x, to.y)
 //            else curveTo(from.x + dx / 3, to.y - 10, to.x - dx / 3, to.y - 10, to.x, to.y)
         }
 
-    fun Graphics2D.drawDigit(bit: Long, name: String, x: Float, y: Float, error: Boolean = false) {
+    fun Graphics2D.drawDigit(bit: Long, name: String, x: Double, y: Double, error: Boolean = false) {
         font = labelFont
         color = fgColor
         stroke = BasicStroke(1f)
-        drawString(name, x + 2, y + 12)
+        drawString(name, x.toFloat() + 2, y.toFloat() + 12)
 
         color = fgColor.withAlpha(80)
-        draw(Rectangle2D.Float(x, y, 38f, 73f))
+        draw(Rectangle2D.Double(x, y, 38.0, 73.0))
         font = digitFont
-        draw(font.createGlyphVector(fontRenderContext, "8").getOutline(x + 1, y + 70))
+        draw(font.createGlyphVector(fontRenderContext, "8").getOutline(x.toFloat() + 1, y.toFloat() + 70))
         val c = if (error) errorColor else correctColor
         color = c.withAlpha(80)
-        val outline = font.createGlyphVector(fontRenderContext, bit.toString()).getOutline(x + 1, y + 70)
+        val outline =
+            font.createGlyphVector(fontRenderContext, bit.toString()).getOutline(x.toFloat() + 1, y.toFloat() + 70)
         fill(outline)
         color = c
         draw(outline)

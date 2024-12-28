@@ -135,16 +135,18 @@ class Day24Video {
         val gates = mutableListOf<Pair<Gate, Point2D.Float>>()
         val outputs = mutableMapOf<String, Point2D.Float>()
         val inputs = mutableListOf<Pair<Set<String>, Point2D.Float>>()
-        fun addGate(gate: Gate, out: String, x: Float, y: Float) {
+        fun addGate(gate: Gate, out: String, row: Int, col: Int) {
+            val x = 0f + col * 38
+            val y = 230f + row * 60
             gates += gate to Point2D.Float(x, y)
             inputs += gate.inputs to Point2D.Float(x + 4, y)
-            outputs[out] = Point2D.Float(x + 12, y + 40)
+            outputs[out] = Point2D.Float(x + 12, y + 40 + (2 - col) * 2)
         }
-        adder.and1?.let { (gate, out) -> addGate(gate, out, 0f, 230f) }
-        adder.xor1?.let { (gate, out) -> addGate(gate, out, 76f, 230f) }
-        adder.and2?.let { (gate, out) -> addGate(gate, out, 38f, 290f) }
-        adder.xor2?.let { (gate, out) -> addGate(gate, out, 76f, 290f) }
-        adder.or1?.let { (gate, out) -> addGate(gate, out, 0f, 350f) }
+        adder.and1?.let { (gate, out) -> addGate(gate, out, 0, 0) }
+        adder.xor1?.let { (gate, out) -> addGate(gate, out, 0, 2) }
+        adder.and2?.let { (gate, out) -> addGate(gate, out, 1, 1) }
+        adder.xor2?.let { (gate, out) -> addGate(gate, out, 1, 2) }
+        adder.or1?.let { (gate, out) -> addGate(gate, out, 2, 0) }
         outputs[adder.a] = Point2D.Float(96f, 190f)
         outputs[adder.b] = Point2D.Float(80f, 200f)
         inputs += setOf(adder.sum) to Point2D.Float(88f, 415f)
@@ -212,7 +214,7 @@ class Day24Video {
         draw(gatePath)
         draw(Line2D.Float(4f, 0f, 4f, 7f))
         draw(Line2D.Float(20f, 0f, 20f, 7f))
-        draw(Line2D.Float(12f, 34f, 12f, 40f))
+        draw(Line2D.Float(12f, 34f, 12f, if (x > 60) 40f else if (x > 30) 42f else 44f))
         transform(tr.createInverse())
     }
 

@@ -28,7 +28,7 @@ data class AnimState(
     val x: Long = Random.nextLong(),
     val y: Long = Random.nextLong(),
     val z: Long = Random.nextLong(),
-    val position: Double = 0.0
+    val position: Double = -5.0
 )
 
 fun main() {
@@ -53,15 +53,24 @@ fun main() {
     val anim = AtomicReference(AnimState(adders))
 
     display(anim, "Day 24: Crossed Wires", op = Day24Video()::paintOnImage)
+    var sleep = 20.0
 
     thread {
-        while (true) {
+        while (anim.get().position < 47) {
             anim.updateAndGet {
                 var position = it.position + 0.01
-                if (position > 47) position = -4.0
+//                if (position > 47) { position = -5.0; sleep = 20.0 }
+                val current = it.adders.getOrNull(position.toInt())
+                val swap = current?.takeIf { it.cin!=null }?.let(::fixFullAdder) ?: emptyList()
+                if (swap.isEmpty()) {
+                    sleep = sleep - 0.3
+//                    sleep = sleep - 0.03
+                } else {
+                    sleep = 20.0
+                }
                 it.copy(position = position)
             }
-            sleep(10)
+            sleep(sleep.toLong().coerceAtLeast(2))
         }
     }
     thread {
@@ -86,7 +95,7 @@ class Day24Video {
     private var digitFont = Font("7-Segment", 0, 72)
 
     //https://coolors.co/443742-f3dfa2-03cea4-fb4d3d-285943
-    val bgColor = Color(0x44, 0x37, 0x42)
+    val bgColor = Color(0x44, 0x37, 0x42, 0xc0)
     val correctColor = Color(0xF3, 0xDF, 0xA2)
     val fgColor = Color(0x03, 0xCE, 0xA4)
     val errorColor = Color(0xFB, 0x4D, 0x3D)
@@ -98,16 +107,17 @@ class Day24Video {
         g.color = bgColor
         g.fillRect(0, 0, image.width, image.height)
         g.color = fgColor
-        g.translate(400.0 + distance * state.position, 40.0)
+        g.translate(400.0 + distance * state.position.coerceAtMost(41.7), 40.0)
 
         state.adders.indices.forEach { i ->
-            if (i in (state.position.roundToInt() - 3..state.position.roundToInt() + 6)) {
+            if (i in (state.position.roundToInt() - 7..state.position.roundToInt() + 6)) {
                 val adder = state.adders[i]
                 val xBit = state.x shr i and 1L
                 val yBit = state.y shr i and 1L
                 val zBit = state.z shr i and 1L
+                val cBit = state.z shr (i + 1) and 1L
                 val error = zBit != (state.x + state.y) shr i and 1L
-                g.drawAdder(adder, xBit, yBit, zBit, error)
+                g.drawAdder(adder, xBit, yBit, zBit, cBit, error)
             }
 
             g.translate(-distance, 0.0)
@@ -119,6 +129,7 @@ class Day24Video {
         xBit: Long,
         yBit: Long,
         zBit: Long,
+        cBit: Long,
         error: Boolean
     ) {
         val gates = mutableListOf<Pair<Gate, Point2D.Float>>()
@@ -137,12 +148,18 @@ class Day24Video {
         outputs[adder.a] = Point2D.Float(96f, 190f)
         outputs[adder.b] = Point2D.Float(80f, 200f)
         inputs += setOf(adder.sum) to Point2D.Float(88f, 415f)
-        inputs += setOf(adder.cout!!) to Point2D.Float(-10f, 280f - 0.2f)
+        val cout = adder.cout
+        when {
+            cout == "z45" -> inputs += setOf(cout) to Point2D.Float(88f - distance.toFloat(), 415f)
+            cout != null -> inputs += setOf(cout) to Point2D.Float(-10f, 280f - 0.2f)
+        }
         adder.cin?.let { outputs[it] = Point2D.Float(distance.toFloat() - 10f, 280f - 0.2f) }
 
         drawDigit(xBit, adder.a, 50f, 0f)
         drawDigit(yBit, adder.b, 50f, 100f)
         drawDigit(zBit, adder.sum, 50f, 420f, error)
+        if (adder.cout == "z45") drawDigit(cBit, adder.cout!!, 50f - distance.toFloat(), 420f)
+
         drawCircuit {
             moveTo(80f, 75f)
             lineTo(80f, 80f)
@@ -231,16 +248,19 @@ class Day24Video {
         color = fgColor
         stroke = BasicStroke(1f)
         draw(path)
-        if (connect) {
-            fill(Ellipse2D.Double(path.currentPoint.x - 3, path.currentPoint.y - 3, 6.0, 6.0))
-        }
+        if (connect) fill(Ellipse2D.Double(path.currentPoint.x - 3, path.currentPoint.y - 3, 6.0, 6.0))
     }
 
     private fun Graphics2D.drawCircuit(from: Point2D.Float, to: Point2D.Float, connect: Boolean = false) =
         drawCircuit(connect) {
             moveTo(from.x, from.y)
-            if ((from.y - to.y).absoluteValue < 10.1f) lineTo(to.x, from.y) else lineTo(from.x, to.y)
-            lineTo(to.x, to.y)
+            val dy = to.y - from.y
+            val dx = to.x - from.x
+            val firstH = dy.absoluteValue < 10.1f
+            if (firstH) lineTo(to.x, from.y) else lineTo(from.x, to.y)
+//            if (firstH)
+                lineTo(to.x, to.y)
+//            else curveTo(from.x + dx / 3, to.y - 10, to.x - dx / 3, to.y - 10, to.x, to.y)
         }
 
     fun Graphics2D.drawDigit(bit: Long, name: String, x: Float, y: Float, error: Boolean = false) {

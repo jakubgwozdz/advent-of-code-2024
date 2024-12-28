@@ -160,42 +160,35 @@ class Day24Video {
         drawDigit(zBit, adder.sum, 50f, 420f, error)
         if (adder.cout == "z45") drawDigit(cBit, adder.cout!!, 50f - distance.toFloat(), 420f)
 
-        drawCircuit {
+        drawCircuit { // adder.a
             moveTo(80f, 75f)
             lineTo(80f, 80f)
             lineTo(96f, 80f)
             lineTo(96f, 190f)
         }
-        drawCircuit {
+        drawCircuit { // adder.b
             moveTo(80f, 175f)
             lineTo(80f, 180f)
             lineTo(80f, 200f)
         }
-        drawCircuit {
+        drawCircuit { // adder.sum
             moveTo(80f, 418f)
             lineTo(80f, 415f)
             lineTo(88f, 415f)
         }
-//        drawCircuit(true) {
-//            moveTo(20f, 230f)
-//            lineTo(20f, 190f)
-//            lineTo(96f, 190f)
-//        }
-//        drawCircuit(true) {
-//            moveTo(4f, 230f)
-//            lineTo(4f, 200f)
-//            lineTo(80f, 200f)
-//        }
+        if (adder.cout == "z45") drawCircuit { // adder.cout
+            moveTo(80f - distance.toFloat(), 418f)
+            lineTo(80f - distance.toFloat(), 415f)
+            lineTo(88f - distance.toFloat(), 415f)
+        }
         gates.forEach { (gate, pos) -> drawGate(gate, pos.x, pos.y) }
-        inputs.forEach { (names, pos) ->
+        inputs.flatMap { (names, pos) ->
             names.map { outputs[it]!! }
-                .sortedBy { it.x }.forEachIndexed { index, out ->
-                    drawCircuit(Point2D.Float(pos.x + 16f * index, pos.y), out)
-//            lineTo(pos.x, pos.y - 5)
-//            lineTo(outputs[name]!!.x, pos.y - 5)
-//                        lineTo(out.x, out.y)
+                .sortedBy { it.x }.mapIndexed { index, out ->
+                    Point2D.Float(pos.x + 16f * index, pos.y) to out
                 }
         }
+            .forEach { (from, to) -> drawCircuit(from, to) }
     }
 
     private fun Graphics2D.drawGate(gate: Gate, x: Float, y: Float) {

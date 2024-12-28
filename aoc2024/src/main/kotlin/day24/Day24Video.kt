@@ -33,6 +33,7 @@ enum class Stage { WAIT, ZOOMIN, SCROLL, FIX, ZOOMOUT, END }
 private const val MAX_ZOOM = 7.5
 private const val INIT_POS = 22.0 * MAX_ZOOM //2.9
 private const val MIN_ZOOM_SPEED = 0.001
+private const val FIRST_POS = 0.0
 private const val LAST_POS = 47.0
 
 data class AnimState(
@@ -72,7 +73,7 @@ fun main() {
         anim,
         "Day 24: Crossed Wires",
         dimension = Dimension(800, 800),
-        location = Point(500, 100),
+        location = Point(400, 100),
         op = Day24Video()::paintOnImage
     )
 
@@ -87,12 +88,18 @@ fun main() {
                 val zoom = (state.zoom - animSpeed.get()).coerceAtLeast(1.0).let { if (it < 1.0001) 1.0 else it }
                 zooming = zoom > 1
                 animSpeed.set((sin((zoom - 1) * PI / (MAX_ZOOM - 1)) * 0.01).coerceAtLeast(MIN_ZOOM_SPEED))
-                state.copy(zoom = zoom, position = linearInterpolation(1.0, MAX_ZOOM, 0.0, INIT_POS, zoom))
+                state.copy(zoom = zoom, position = linearInterpolation(1.0, MAX_ZOOM, FIRST_POS, INIT_POS, zoom))
             }
             sleep(8)
         }
 
+        val stops = setOf(FIRST_POS, LAST_POS) +
+                adders.withIndex().filter { (_, adder) -> fixFullAdder(adder).isNotEmpty() }
+                    .map { (i, _) -> i.toDouble() }
+        stops.sorted().zipWithNext().forEach {
 
+
+        }
 
         zooming = true
         animSpeed.set(MIN_ZOOM_SPEED)

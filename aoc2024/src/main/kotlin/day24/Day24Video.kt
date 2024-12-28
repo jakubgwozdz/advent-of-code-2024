@@ -28,7 +28,9 @@ data class AnimState(
     val x: Long = Random.nextLong(),
     val y: Long = Random.nextLong(),
     val z: Long = Random.nextLong(),
-    val position: Double = -5.0
+    val position: Double = -5.0,
+    val swap: List<String> = emptyList(),
+    val swapProgress: Double = 0.0,
 )
 
 fun main() {
@@ -57,18 +59,37 @@ fun main() {
 
     thread {
         while (anim.get().position < 47) {
-            anim.updateAndGet {
-                var position = it.position + 0.01
-//                if (position > 47) { position = -5.0; sleep = 20.0 }
-                val current = it.adders.getOrNull(position.toInt())
-                val swap = current?.takeIf { it.cin != null }?.let(::fixFullAdder) ?: emptyList()
+            anim.updateAndGet { state ->
+                val current = state.adders.getOrNull(state.position.toInt())
+                val swap = state.swap.takeIf { it.isNotEmpty() }
+                    ?: current?.takeIf { it.cin != null }?.let { fixFullAdder(it) }
+                    ?: emptyList()
                 if (swap.isEmpty()) {
-                    sleep = sleep - 0.3
+                    sleep -= 0.3
+                    state.copy(position = state.position + 0.01)
 //                    sleep = sleep - 0.03
+                } else if (state.swapProgress < 1) {
+                    sleep = 0.0
+                    state.copy(swapProgress = state.swapProgress + 0.001, swap = swap)
                 } else {
                     sleep = 200.0
+                    state.copy(
+                        adders = state.adders.map { adder ->
+                            adder.takeIf { it != current } ?: with(current!!) {
+                                copy(
+                                    and1 = and1?.replaceOutput(swap),
+                                    xor1 = xor1?.replaceOutput(swap),
+                                    and2 = and2?.replaceOutput(swap),
+                                    xor2 = xor2?.replaceOutput(swap),
+                                    or1 = or1?.replaceOutput(swap),
+                                )
+                            }
+                        },
+                        z = state.adders.calculate(state.x, state.y),
+                        swap = emptyList(),
+                        swapProgress = 0.0,
+                    )
                 }
-                it.copy(position = position)
             }
             sleep(sleep.toLong().coerceAtLeast(2))
         }
@@ -81,13 +102,16 @@ fun main() {
                 it.copy(
                     x = x,
                     y = y,
-                    z = adders.calculate(x, y),
+                    z = it.adders.calculate(x, y),
                 )
             }
             sleep(1000)
         }
     }
 }
+
+fun Pair<Gate, String>.replaceOutput(swap: List<String>) =
+    if (second !in swap) this else first to swap.single { it != second }
 
 class Day24Video {
 
@@ -117,7 +141,7 @@ class Day24Video {
                 val zBit = state.z shr i and 1L
                 val cBit = state.z shr (i + 1) and 1L
                 val error = zBit != (state.x + state.y) shr i and 1L
-                g.drawAdder(adder, xBit, yBit, zBit, cBit, error)
+                g.drawAdder(adder, xBit, yBit, zBit, cBit, error, state.swap, state.swapProgress)
             }
 
             g.translate(-distance, 0.0)
@@ -130,7 +154,9 @@ class Day24Video {
         yBit: Long,
         zBit: Long,
         cBit: Long,
-        error: Boolean
+        error: Boolean,
+        swap: List<String>,
+        swapProgress: Double
     ) {
         val gates = mutableListOf<Pair<Gate, Point2D.Float>>()
         val outputs = mutableMapOf<String, Point2D.Float>()
@@ -156,7 +182,16 @@ class Day24Video {
             cout != null -> inputs += setOf(cout) to Point2D.Float(-10f, 280f - 0.2f)
         }
         adder.cin?.let { outputs[it] = Point2D.Float(distance.toFloat() - 10f, 280f - 0.2f) }
-
+        if (swap.isNotEmpty() && swap.all { it in outputs }) {
+            val x0 = outputs[swap[0]]!!.x
+            val x1 = outputs[swap[1]]!!.x
+            val y0 = outputs[swap[0]]!!.y
+            val y1 = outputs[swap[1]]!!.y
+            outputs[swap[0]] =
+                Point2D.Float(x0 + (x1 - x0) * swapProgress.toFloat(), y0 + (y1 - y0) * swapProgress.toFloat())
+            outputs[swap[1]] =
+                Point2D.Float(x1 - (x1 - x0) * swapProgress.toFloat(), y1 - (y1 - y0) * swapProgress.toFloat())
+        }
         drawDigit(xBit, adder.a, 50f, 0f)
         drawDigit(yBit, adder.b, 50f, 100f)
         drawDigit(zBit, adder.sum, 50f, 420f, error)

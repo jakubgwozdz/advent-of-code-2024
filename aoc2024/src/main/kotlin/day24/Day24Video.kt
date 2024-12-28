@@ -1,13 +1,16 @@
 package day24
 
 import display
+import linearInterpolation
 import readAllText
 import useGraphics
 import withAlpha
 import java.awt.BasicStroke
 import java.awt.Color
+import java.awt.Dimension
 import java.awt.Font
 import java.awt.Graphics2D
+import java.awt.Point
 import java.awt.geom.AffineTransform
 import java.awt.geom.Arc2D
 import java.awt.geom.Ellipse2D
@@ -19,20 +22,29 @@ import java.awt.image.BufferedImage
 import java.lang.Thread.sleep
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.concurrent.thread
+import kotlin.math.PI
 import kotlin.math.pow
-import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlin.random.Random
+
+enum class Stage { WAIT, ZOOMIN, SCROLL, FIX, ZOOMOUT, END }
+
+private const val MAX_ZOOM = 7.5
+private const val INIT_POS = 22.0 * MAX_ZOOM //2.9
+private const val MIN_ZOOM_SPEED = 0.001
+private const val LAST_POS = 47.0
 
 data class AnimState(
     val adders: List<Adder> = emptyList(),
     val x: Long = Random.nextLong(),
     val y: Long = Random.nextLong(),
     val z: Long = Random.nextLong(),
-    val position: Double = -5.0,
+//    val stage: Stage = Stage.WAIT,
     val swap: List<String> = emptyList(),
     val swapProgress: Double = 0.0,
+    val position: Double = INIT_POS,
+    val zoom: Double = MAX_ZOOM,
 )
 
 fun main() {
@@ -56,59 +68,83 @@ fun main() {
 
     val anim = AtomicReference(AnimState(adders))
 
-    display(anim, "Day 24: Crossed Wires", op = Day24Video()::paintOnImage)
-    var sleep = 20.0
+    display(
+        anim,
+        "Day 24: Crossed Wires",
+        dimension = Dimension(800, 800),
+        location = Point(500, 100),
+        op = Day24Video()::paintOnImage
+    )
 
     thread {
-        while (anim.get().position < 47) {
+        val animSpeed = AtomicReference(0.0)
+//        sleep(10000)
+        println("Zooming in")
+        var zooming = true
+        animSpeed.set(MIN_ZOOM_SPEED)
+        while (zooming) {
             anim.updateAndGet { state ->
-                val current = state.adders.getOrNull(state.position.toInt())
-                val swap = state.swap.takeIf { it.isNotEmpty() }
-                    ?: current?.takeIf { it.cin != null }?.let { fixFullAdder(it) }
-                    ?: emptyList()
-                if (swap.isEmpty()) {
-                    sleep -= 0.3
-                    state.copy(position = state.position + 0.01)
-//                    sleep = sleep - 0.03
-                } else if (state.swapProgress < 1) {
-                    sleep = 10.0
-                    state.copy(swapProgress = state.swapProgress + 0.001, swap = swap)
-                } else {
-                    sleep = 20.0
-                    state.copy(
-                        adders = state.adders.map { adder ->
-                            adder.takeIf { it != current } ?: with(current!!) {
-                                copy(
-                                    and1 = and1?.replaceOutput(swap),
-                                    xor1 = xor1?.replaceOutput(swap),
-                                    and2 = and2?.replaceOutput(swap),
-                                    xor2 = xor2?.replaceOutput(swap),
-                                    or1 = or1?.replaceOutput(swap),
-                                )
-                            }
-                        },
-                        z = state.adders.calculate(state.x, state.y),
-                        swap = emptyList(),
-                        swapProgress = 0.0,
-                    )
-                }
+                val zoom = (state.zoom - animSpeed.get()).coerceAtLeast(1.0).let { if (it < 1.0001) 1.0 else it }
+                zooming = zoom > 1
+                animSpeed.set((sin((zoom - 1) * PI / (MAX_ZOOM - 1)) * 0.01).coerceAtLeast(MIN_ZOOM_SPEED))
+                state.copy(zoom = zoom, position = linearInterpolation(1.0, MAX_ZOOM, 0.0, INIT_POS, zoom))
             }
-            sleep(sleep.toLong().coerceAtLeast(2))
+            sleep(8)
         }
+
+
+
+        zooming = true
+        animSpeed.set(MIN_ZOOM_SPEED)
+        while (zooming) {
+            anim.updateAndGet { state ->
+                val zoom = (state.zoom + animSpeed.get()).coerceAtMost(MAX_ZOOM).let { if (it < 1.0001) 1.0 else it }
+                zooming = zoom < MAX_ZOOM
+                animSpeed.set((sin((zoom - 1) * PI / (MAX_ZOOM - 1)) * 0.01).coerceAtLeast(MIN_ZOOM_SPEED))
+                state.copy(zoom = zoom, position = linearInterpolation(1.0, MAX_ZOOM, LAST_POS, INIT_POS, zoom))
+            }
+            sleep(8)
+        }
+        println("Zoomed out")
     }
     thread {
         while (true) {
             anim.updateAndGet {
                 val x = Random.nextBits(30).toLong() shl 15 or Random.nextBits(15).toLong()
                 val y = Random.nextBits(30).toLong() shl 15 or Random.nextBits(15).toLong()
-                it.copy(
-                    x = x,
-                    y = y,
-                    z = it.adders.calculate(x, y),
-                )
+                it.copy(x = x, y = y, z = it.adders.calculate(x, y))
             }
             sleep(1000)
         }
+    }
+}
+
+private fun scroll(state: AnimState, animSpeed: AtomicReference<Double>): AnimState? {
+    val current = state.adders.getOrNull(state.position.toInt())
+    val swap = state.swap.takeIf { it.isNotEmpty() }
+        ?: current?.takeIf { it.cin != null }?.let { fixFullAdder(it) }
+        ?: emptyList()
+    return if (swap.isEmpty()) {
+        state.copy(position = state.position + 0.01)
+    } else if (state.swapProgress < 1) {
+        state.copy(swapProgress = state.swapProgress + 0.001, swap = swap)
+    } else {
+        state.copy(
+            adders = state.adders.map { adder ->
+                adder.takeIf { it != current } ?: with(current!!) {
+                    copy(
+                        and1 = and1?.replaceOutput(swap),
+                        xor1 = xor1?.replaceOutput(swap),
+                        and2 = and2?.replaceOutput(swap),
+                        xor2 = xor2?.replaceOutput(swap),
+                        or1 = or1?.replaceOutput(swap),
+                    )
+                }
+            },
+            z = state.adders.calculate(state.x, state.y),
+            swap = emptyList(),
+            swapProgress = 0.0,
+        )
     }
 }
 
@@ -132,19 +168,31 @@ class Day24Video {
     fun paintOnImage(state: AnimState, image: BufferedImage) = image.useGraphics { g ->
         g.color = bgColor
         g.fillRect(0, 0, image.width, image.height)
-        g.color = fgColor
-        g.translate(400.0 + distance * state.position.coerceAtMost(41.7), 40.0)
 
+        g.drawDigits(state.x.toString().padStart(14), 210.0, 540.0, false)
+        g.drawDigits(state.y.toString().padStart(14), 210.0, 620.0, false)
+        g.drawDigits("+", 160.0, 620.0, false)
+        g.draw(Line2D.Double(190.0, 710.0, 710.0, 710.0))
+        g.drawDigits(state.z.toString().padStart(14), 210.0, 715.0, state.z != state.x + state.y)
+
+
+//        g.translate(600.0 + distance * state.position.coerceAtMost(41.7), 40.0)
+//        g.translate(image.width / 2 + distance * state.position, 40.0)
+        g.translate(image.width / 2.0, 40.0)
+        g.scale(1 / state.zoom, 1 / state.zoom)
+        g.translate(distance * state.position / state.zoom, 0.0)
+
+        g.color = fgColor
         state.adders.indices.forEach { i ->
-            if (i in (state.position.roundToInt() - 7..state.position.roundToInt() + 6)) {
-                val adder = state.adders[i]
-                val xBit = state.x shr i and 1L
-                val yBit = state.y shr i and 1L
-                val zBit = state.z shr i and 1L
-                val cBit = state.z shr (i + 1) and 1L
-                val error = zBit != (state.x + state.y) shr i and 1L
-                g.drawAdder(adder, xBit, yBit, zBit, cBit, error, state.swap, state.swapProgress)
-            }
+//            if (i in (state.position.roundToInt() - 7..state.position.roundToInt() + 6)) {
+            val adder = state.adders[i]
+            val xBit = state.x shr i and 1L
+            val yBit = state.y shr i and 1L
+            val zBit = state.z shr i and 1L
+            val cBit = state.z shr (i + 1) and 1L
+            val error = zBit != (state.x + state.y) shr i and 1L
+            g.drawAdder(adder, xBit, yBit, zBit, cBit, error, state.swap, state.swapProgress)
+//            }
 
             g.translate(-distance, 0.0)
         }
@@ -240,7 +288,13 @@ class Day24Video {
                 .mapIndexed { index, out -> Point2D.Double(pos.x + 16.0 * index, pos.y) to out }
         }.groupBy { it.second }.mapValues { (_, list) -> list.map { it.first } }
             .forEach { (to, froms) ->
-                froms.forEach { from -> drawCircuit(from, to.second, to.first == swap.getOrNull(1) || to.first == swap.getOrNull(0) && swapProgress<0.5) }
+                froms.forEach { from ->
+                    drawCircuit(
+                        from,
+                        to.second,
+                        to.first == swap.getOrNull(1) || to.first == swap.getOrNull(0) && swapProgress < 0.5
+                    )
+                }
                 if (froms.size > 1) {
                     val xs = (froms.map { it.x } + to.second.x).sorted().drop(1).dropLast(1)
                     xs.forEach { x -> drawConnect(x, to.second.y) }
@@ -336,15 +390,23 @@ class Day24Video {
         color = fgColor
         stroke = BasicStroke(1f)
         drawString(name, x.toFloat() + 2, y.toFloat() + 12)
-
         color = fgColor.withAlpha(80)
         draw(Rectangle2D.Double(x, y, 38.0, 73.0))
+        drawDigits(bit.toString(), x, y, error)
+    }
+
+    private fun Graphics2D.drawDigits(str: String, x: Double, y: Double, error: Boolean) {
+        color = fgColor.withAlpha(80)
+        stroke = BasicStroke(1f)
         font = digitFont
-        draw(font.createGlyphVector(fontRenderContext, "8").getOutline(x.toFloat() + 1, y.toFloat() + 70))
+        if (str != "+") draw(
+            font.createGlyphVector(fontRenderContext, str.map { '8' }.joinToString(""))
+                .getOutline(x.toFloat() + 1, y.toFloat() + 70)
+        )
         val c = if (error) errorColor else correctColor
         color = c.withAlpha(80)
         val outline =
-            font.createGlyphVector(fontRenderContext, bit.toString()).getOutline(x.toFloat() + 1, y.toFloat() + 70)
+            font.createGlyphVector(fontRenderContext, str).getOutline(x.toFloat() + 1, y.toFloat() + 70)
         fill(outline)
         color = c
         draw(outline)

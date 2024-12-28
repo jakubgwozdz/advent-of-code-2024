@@ -86,3 +86,6 @@ fun <S> display(
 
     timer.start()
 }
+
+fun linearInterpolation(x0: Double, x1: Double, t: Double) = x0 + (x1 - x0) * t
+fun linearInterpolation(x0: Double, x1: Double, y0:Double, y1: Double, t: Double) = y0 + (y1 - y0) * (t - x0) / (x1 - x0)

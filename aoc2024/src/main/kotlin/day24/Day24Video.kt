@@ -178,24 +178,24 @@ class Day24Video {
         inputs += setOf(adder.sum) to Point2D.Double(88.0, 415.0)
         val cout = adder.cout
         when {
-            cout == "z45" -> inputs += setOf(cout) to Point2D.Double(88.0 - distance.toDouble(), 415.0)
+            cout == "z45" -> inputs += setOf(cout) to Point2D.Double(88.0 - distance, 415.0)
             cout != null -> inputs += setOf(cout) to Point2D.Double(-10.0, 280.0 - 0.2)
         }
-        adder.cin?.let { outputs[it] = Point2D.Double(distance.toDouble() - 10.0, 280.0 - 0.2) }
+        adder.cin?.let { outputs[it] = Point2D.Double(distance - 10.0, 280.0 - 0.2) }
         if (swap.isNotEmpty() && swap.all { it in outputs }) {
             val x0 = outputs[swap[0]]!!.x
             val x1 = outputs[swap[1]]!!.x
             val y0 = outputs[swap[0]]!!.y
             val y1 = outputs[swap[1]]!!.y
             outputs[swap[0]] =
-                Point2D.Double(x0 + (x1 - x0) * swapProgress.toDouble(), y0 + (y1 - y0) * swapProgress.toDouble())
+                Point2D.Double(x0 + (x1 - x0) * swapProgress, y0 + (y1 - y0) * swapProgress)
             outputs[swap[1]] =
-                Point2D.Double(x1 - (x1 - x0) * swapProgress.toDouble(), y1 - (y1 - y0) * swapProgress.toDouble())
+                Point2D.Double(x1 - (x1 - x0) * swapProgress, y1 - (y1 - y0) * swapProgress)
         }
         drawDigit(xBit, adder.a, 50.0, 0.0)
         drawDigit(yBit, adder.b, 50.0, 100.0)
         drawDigit(zBit, adder.sum, 50.0, 420.0, error)
-        if (adder.cout == "z45") drawDigit(cBit, adder.cout!!, 50.0 - distance.toDouble(), 420.0)
+        if (adder.cout == "z45") drawDigit(cBit, adder.cout!!, 50.0 - distance, 420.0)
 
         drawCircuit { // adder.a
             moveTo(80.0, 75.0)
@@ -214,28 +214,28 @@ class Day24Video {
             lineTo(88.0, 415.0)
         }
         if (adder.cout == "z45") drawCircuit { // adder.cout
-            moveTo(80.0 - distance.toDouble(), 418.0)
-            lineTo(80.0 - distance.toDouble(), 415.0)
-            lineTo(88.0 - distance.toDouble(), 415.0)
+            moveTo(80.0 - distance, 418.0)
+            lineTo(80.0 - distance, 415.0)
+            lineTo(88.0 - distance, 415.0)
         }
         gates.forEach { (gate, pos) -> drawGate(gate, pos.x, pos.y) }
         inputs.flatMap { (names, pos) ->
-            names.map { outputs[it]!! }
-                .sortedBy { it.x }
+            names.map { it to outputs[it]!! }
+                .sortedBy { it.second.x }
                 .mapIndexed { index, out -> Point2D.Double(pos.x + 16.0 * index, pos.y) to out }
         }.groupBy { it.second }.mapValues { (_, list) -> list.map { it.first } }
             .forEach { (to, froms) ->
-                froms.forEach { from -> drawCircuit(from, to) }
+                froms.forEach { from -> drawCircuit(from, to.second, to.first in swap) }
                 if (froms.size > 1) {
-                    val xs = (froms.map { it.x } + to.x).sorted().drop(1).dropLast(1)
-                    xs.forEach { x -> drawConnect(x, to.y) }
+                    val xs = (froms.map { it.x } + to.second.x).sorted().drop(1).dropLast(1)
+                    xs.forEach { x -> drawConnect(x, to.second.y) }
                 }
             }
     }
 
     private fun Graphics2D.drawGate(gate: Gate, x: Double, y: Double) {
         color = fgColor
-        val tr = AffineTransform.getTranslateInstance(x.toDouble(), y.toDouble())
+        val tr = AffineTransform.getTranslateInstance(x, y)
         transform(tr)
 
         val gatePath = Path2D.Double()
@@ -275,12 +275,12 @@ class Day24Video {
         lineTo(0.0, 7.0)
     }
 
-    private fun Graphics2D.drawCircuit(pathOp: Path2D.Double.() -> Unit) {
+    private fun Graphics2D.drawCircuit(isError: Boolean = false, pathOp: Path2D.Double.() -> Unit) {
         val path = Path2D.Double().apply(pathOp)
         color = bgColor
         stroke = BasicStroke(3f)
         draw(path)
-        color = fgColor
+        color = if (isError) errorColor else fgColor
         stroke = BasicStroke(1f)
         draw(path)
     }
@@ -289,8 +289,8 @@ class Day24Video {
         fill(Ellipse2D.Double(x - 3, y - 3, 6.0, 6.0))
     }
 
-    private fun Graphics2D.drawCircuit(from: Point2D.Double, to: Point2D.Double) =
-        drawCircuit {
+    private fun Graphics2D.drawCircuit(from: Point2D.Double, to: Point2D.Double, isError: Boolean = false) =
+        drawCircuit(isError) {
             moveTo(from.x, from.y)
             val dy = to.y - from.y
             val dx = to.x - from.x

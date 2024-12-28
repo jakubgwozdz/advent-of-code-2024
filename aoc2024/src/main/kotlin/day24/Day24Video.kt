@@ -61,12 +61,12 @@ fun main() {
                 var position = it.position + 0.01
 //                if (position > 47) { position = -5.0; sleep = 20.0 }
                 val current = it.adders.getOrNull(position.toInt())
-                val swap = current?.takeIf { it.cin!=null }?.let(::fixFullAdder) ?: emptyList()
+                val swap = current?.takeIf { it.cin != null }?.let(::fixFullAdder) ?: emptyList()
                 if (swap.isEmpty()) {
                     sleep = sleep - 0.3
 //                    sleep = sleep - 0.03
                 } else {
-                    sleep = 20.0
+                    sleep = 200.0
                 }
                 it.copy(position = position)
             }
@@ -187,8 +187,14 @@ class Day24Video {
                 .sortedBy { it.x }.mapIndexed { index, out ->
                     Point2D.Float(pos.x + 16f * index, pos.y) to out
                 }
-        }
-            .forEach { (from, to) -> drawCircuit(from, to) }
+        }.groupBy { it.second }.mapValues { (_, list) -> list.map { it.first } }
+            .forEach { (to, froms) ->
+                froms.forEach { from -> drawCircuit(from, to) }
+                if (froms.size > 1) {
+                    val xs = (froms.map { it.x } + to.x).sorted().drop(1).dropLast(1)
+                    xs.forEach { x -> drawConnect(x, to.y) }
+                }
+            }
     }
 
     private fun Graphics2D.drawGate(gate: Gate, x: Float, y: Float) {
@@ -233,7 +239,7 @@ class Day24Video {
         lineTo(0f, 7f)
     }
 
-    private fun Graphics2D.drawCircuit(connect: Boolean = false, pathOp: Path2D.Float.() -> Unit) {
+    private fun Graphics2D.drawCircuit(pathOp: Path2D.Float.() -> Unit) {
         val path = Path2D.Float().apply(pathOp)
         color = bgColor
         stroke = BasicStroke(3f)
@@ -241,18 +247,21 @@ class Day24Video {
         color = fgColor
         stroke = BasicStroke(1f)
         draw(path)
-        if (connect) fill(Ellipse2D.Double(path.currentPoint.x - 3, path.currentPoint.y - 3, 6.0, 6.0))
     }
 
-    private fun Graphics2D.drawCircuit(from: Point2D.Float, to: Point2D.Float, connect: Boolean = false) =
-        drawCircuit(connect) {
+    private fun Graphics2D.drawConnect(x: Float, y: Float) {
+        fill(Ellipse2D.Float(x - 3, y - 3, 6f, 6f))
+    }
+
+    private fun Graphics2D.drawCircuit(from: Point2D.Float, to: Point2D.Float) =
+        drawCircuit {
             moveTo(from.x, from.y)
             val dy = to.y - from.y
             val dx = to.x - from.x
             val firstH = dy.absoluteValue < 10.1f
             if (firstH) lineTo(to.x, from.y) else lineTo(from.x, to.y)
 //            if (firstH)
-                lineTo(to.x, to.y)
+            lineTo(to.x, to.y)
 //            else curveTo(from.x + dx / 3, to.y - 10, to.x - dx / 3, to.y - 10, to.x, to.y)
         }
 

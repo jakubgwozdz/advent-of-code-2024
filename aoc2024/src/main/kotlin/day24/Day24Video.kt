@@ -1,16 +1,11 @@
 package day24
 
-import display
-import linearInterpolation
-import readAllText
 import useGraphics
 import withAlpha
 import java.awt.BasicStroke
 import java.awt.Color
-import java.awt.Dimension
 import java.awt.Font
 import java.awt.Graphics2D
-import java.awt.Point
 import java.awt.geom.AffineTransform
 import java.awt.geom.Arc2D
 import java.awt.geom.Ellipse2D
@@ -19,168 +14,11 @@ import java.awt.geom.Path2D
 import java.awt.geom.Point2D
 import java.awt.geom.Rectangle2D
 import java.awt.image.BufferedImage
-import java.lang.Thread.sleep
-import java.util.concurrent.atomic.AtomicReference
-import kotlin.concurrent.thread
-import kotlin.math.PI
 import kotlin.math.pow
 import kotlin.math.sin
 import kotlin.math.sqrt
-import kotlin.random.Random
 
-private const val MAX_ZOOM = 7.5
-private const val INIT_POS = 22.0 * MAX_ZOOM //2.9
-private const val MIN_SPEED = 0.001
-private const val ZOOM_SPEED = 0.01
-private const val SCROOL_SPEED = 0.05
-private const val FIX_SPEED = 0.005
-private const val FIRST_POS = 0.0
-private const val LAST_POS = 45.0
-
-data class AnimState(
-    val adders: List<Adder> = emptyList(),
-    val x: Long = Random.nextLong(),
-    val y: Long = Random.nextLong(),
-    val z: Long = Random.nextLong(),
-//    val stage: Stage = Stage.WAIT,
-    val swap: List<String> = emptyList(),
-    val swapProgress: Double = 0.0,
-    val position: Double = INIT_POS,
-    val zoom: Double = MAX_ZOOM,
-)
-
-fun main() {
-    val input = parse(readAllText("local/day24_input.txt"))
-
-    val adders = setUpAdders(input)
-//    val x = Random.nextBits(30).toLong() shl 15 or Random.nextBits(15).toLong()
-//    val y = Random.nextBits(30).toLong() shl 15 or Random.nextBits(15).toLong()
-//    val z = adders.calculate(x, y)
-//    val diff = (x + y) xor z
-//
-//    println("id:       " + (45 downTo 0).joinToString("") { "${it / 10}" })
-//    println("          " + (45 downTo 0).joinToString("") { "${it % 10}" })
-//    println("x:         ${x.toString(2).padStart(45, '0')}")
-//    println("y:         ${y.toString(2).padStart(45, '0')}")
-//    println("(x+y):    ${(x + y).toString(2).padStart(46, '0')}")
-//    println("z:        ${z.toString(2).padStart(46, '0')}")
-//
-//    println("diff:     ${diff.toString(2).padStart(46, '0').replace("0", " ").replace("1", "^")}")
-
-
-    val anim = AtomicReference(AnimState(adders))
-
-    display(
-        anim,
-        "Day 24: Crossed Wires",
-        dimension = Dimension(800, 800),
-        location = Point(400, 100),
-        op = Day24Video()::paintOnImage
-    )
-
-    thread {
-        val animSpeed = AtomicReference(0.0)
-//        sleep(10000)
-        println("Zooming in")
-        var zooming = true
-        animSpeed.set(MIN_SPEED)
-        while (zooming) {
-            anim.updateAndGet { state ->
-                val zoom = (state.zoom - animSpeed.get()).coerceAtLeast(1.0).let { if (it < 1.0001) 1.0 else it }
-                zooming = zoom > 1
-                animSpeed.set((sin((zoom - 1) * PI / (MAX_ZOOM - 1)) * ZOOM_SPEED).coerceAtLeast(MIN_SPEED / 10))
-                state.copy(zoom = zoom, position = linearInterpolation(1.0, MAX_ZOOM, FIRST_POS, INIT_POS, zoom))
-            }
-            sleep(8)
-        }
-        sleep(500)
-
-        val stops = (setOf(FIRST_POS to (null to emptyList<String>()), LAST_POS to (null to emptyList())) +
-                adders.mapIndexed { i, v -> i.toDouble() to v }.drop(1)
-                    .map { (i, adder) -> i to (adder to fixFullAdder(adder)) }
-                    .filter { (_, v) -> v.second.isNotEmpty() })
-            .sortedBy { (i, _) -> i }.zipWithNext()
-            .map { (a, b) -> a.first to b.first to b.second }
-        stops.forEach { (range, adderWithSwap) ->
-            val (start, end) = range
-            println("Scrolling from $start to $end")
-            var scrolling = true
-            animSpeed.set(MIN_SPEED)
-            while (scrolling) {
-                anim.updateAndGet { state ->
-                    val position = (state.position + animSpeed.get()).coerceIn(start, end)
-                    scrolling = position < end
-                    animSpeed.set((sin((position - start) * PI / (end - start)) * SCROOL_SPEED).coerceAtLeast(MIN_SPEED))
-                    state.copy(position = position)
-                }
-                sleep(8)
-            }
-            val (current, swap) = adderWithSwap
-            if (current != null && swap.isNotEmpty()) {
-                println("Fixing full adder")
-                var fixing = true
-                animSpeed.set(MIN_SPEED)
-                anim.updateAndGet { state -> state.copy(swap = swap, swapProgress = 0.0) }
-                while (fixing) {
-                    anim.updateAndGet { state ->
-                        val swapProgress = (state.swapProgress + animSpeed.get()).coerceAtMost(1.0)
-                        fixing = swapProgress < 1
-                        animSpeed.set((sin(swapProgress * PI) * FIX_SPEED).coerceAtLeast(MIN_SPEED))
-                        state.copy(swapProgress = swapProgress)
-                    }
-                    sleep(8)
-                }
-                anim.updateAndGet { state ->
-                    state.copy(
-                        adders = state.adders.map { adder ->
-                            adder.takeIf { it != current } ?: with(current) {
-                                copy(
-                                    and1 = and1?.replaceOutput(swap),
-                                    xor1 = xor1?.replaceOutput(swap),
-                                    and2 = and2?.replaceOutput(swap),
-                                    xor2 = xor2?.replaceOutput(swap),
-                                    or1 = or1?.replaceOutput(swap),
-                                )
-                            }
-                        },
-                        z = state.adders.calculate(state.x, state.y),
-                        swap = emptyList(),
-                        swapProgress = 0.0,
-                    )
-                }
-            }
-
-        }
-
-        sleep(500)
-
-        zooming = true
-        animSpeed.set(MIN_SPEED / 10)
-        while (zooming) {
-            anim.updateAndGet { state ->
-                val zoom = (state.zoom + animSpeed.get()).coerceAtMost(MAX_ZOOM)//.let { if (it < 1.0001) 1.0 else it }
-                zooming = zoom < MAX_ZOOM
-                animSpeed.set((sin((zoom - 1) * PI / (MAX_ZOOM - 1)) * ZOOM_SPEED).coerceAtLeast(MIN_SPEED / 10))
-                state.copy(zoom = zoom, position = linearInterpolation(1.0, MAX_ZOOM, LAST_POS, INIT_POS, zoom))
-            }
-            sleep(8)
-        }
-        println("Zoomed out")
-    }
-    thread {
-        while (true) {
-            anim.updateAndGet {
-                val x = Random.nextBits(30).toLong() shl 15 or Random.nextBits(15).toLong()
-                val y = Random.nextBits(30).toLong() shl 15 or Random.nextBits(15).toLong()
-                it.copy(x = x, y = y, z = it.adders.calculate(x, y))
-            }
-            sleep(1000)
-        }
-    }
-}
-
-fun Pair<Gate, String>.replaceOutput(swap: List<String>) =
-    if (second !in swap) this else first to swap.single { it != second }
+data class Pt(val x: Double, val y: Double)
 
 class Day24Video {
 
@@ -222,12 +60,24 @@ class Day24Video {
             val zBit = state.z shr i and 1L
             val cBit = state.z shr (i + 1) and 1L
             val error = zBit != (state.x + state.y) shr i and 1L
-            g.drawAdder(adder, xBit, yBit, zBit, cBit, error, state.swap, state.swapProgress)
+            g.drawAdder(
+                adder, xBit, yBit, zBit, cBit, error,
+                if (state.adderToFix == adder) state.swap else emptyList(),
+                state.swapProgress
+            )
 //            }
 
             g.translate(-distance, 0.0)
         }
     }
+
+    data class Wire(
+        val name: String,
+        var input: Pt,
+        var output: Pt,
+        var transitFrom: Pt? = null,
+        var transitTo: Pt? = null,
+    )
 
     private fun Graphics2D.drawAdder(
         adder: Adder,
@@ -239,47 +89,77 @@ class Day24Video {
         swap: List<String>,
         swapProgress: Double
     ) {
-        val gates = mutableListOf<Pair<Gate, Point2D.Double>>()
-        val outputs = mutableMapOf<String, Point2D.Double>()
-        val inputs = mutableListOf<Pair<Set<String>, Point2D.Double>>()
+        val gates = mutableListOf<Pair<Gate, Pt>>()
+        val outputs = mutableMapOf<String, Pt>()
+        val inputs = mutableListOf<Pair<Set<String>, Pt>>()
         fun addGate(gate: Gate, out: String, row: Int, col: Int) {
             val x = 0.0 + col * 38 + if (row > 0) 8 else 0
             val y = 230.0 + row * 60
-            gates += gate to Point2D.Double(x, y)
-            inputs += gate.inputs to Point2D.Double(x + 4, y)
-            outputs[out] = Point2D.Double(x + 12, y + 40 + (2 - col) * 2)
+            gates += gate to Pt(x, y)
+            inputs += gate.inputs to Pt(x + 4, y)
+            val outputY = when (col) {
+                0 -> y + 49
+                1 -> y + 44
+                else -> y + 40
+            }
+            outputs[out] = Pt(x + 12, outputY)
         }
         adder.and1?.let { (gate, out) -> addGate(gate, out, 0, 0) }
         adder.xor1?.let { (gate, out) -> addGate(gate, out, 0, 2) }
         adder.and2?.let { (gate, out) -> addGate(gate, out, 1, 1) }
         adder.xor2?.let { (gate, out) -> addGate(gate, out, 1, 2) }
         adder.or1?.let { (gate, out) -> addGate(gate, out, 2, 0) }
-        outputs[adder.a] = Point2D.Double(96.0, 190.0)
-        outputs[adder.b] = Point2D.Double(80.0, 200.0)
+        outputs[adder.a] = Pt(96.0, 190.0)
+        outputs[adder.b] = Pt(80.0, 200.0)
         val zx = if (adder.sum == "z00") 88.0 else 96.0
-        inputs += setOf(adder.sum) to Point2D.Double(zx, 395.0)
+        inputs += setOf(adder.sum) to Pt(zx, 395.0)
         val cout = adder.cout
         when {
-            cout == "z45" -> inputs += setOf(cout) to Point2D.Double(96.0 - distance, 395.0)
-            cout != null -> inputs += setOf(cout) to Point2D.Double(-2.0, 280.0 - 0.2)
+            cout == "z45" -> inputs += setOf(cout) to Pt(80.0 - distance, 415.0)
+            cout != null -> inputs += setOf(cout) to Pt(-2.0, 280.0 - 0.2)
         }
-        adder.cin?.let { outputs[it] = Point2D.Double(distance - 2.0, 280.0 - 0.2) }
-        if (swap.isNotEmpty() && swap.all { it in outputs }) {
-            val x0 = outputs[swap[0]]!!.x
-            val x1 = outputs[swap[1]]!!.x
-            val y0 = outputs[swap[0]]!!.y
-            val y1 = outputs[swap[1]]!!.y
-            val r = sqrt((x1 + x0).pow(2) / 4 + (y1 - y0).pow(2) / 4)
-            val dy = r * sin(swapProgress * Math.PI * 2) / 3
-            if (swapProgress < 0.5) {
-                val x = x0 + (x1 - x0) * swapProgress * 2
-                val y = y0 + (y1 - y0) * swapProgress * 2 + dy
-                outputs[swap[0]] = Point2D.Double(x, y)
-            } else {
-                outputs[swap[0]] = Point2D.Double(x1, y1)
-                val x = x1 - (x1 - x0) * (swapProgress - 0.5) * 2
-                val y = y1 - (y1 - y0) * (swapProgress - 0.5) * 2 - dy
-                outputs[swap[1]] = Point2D.Double(x, y)
+        adder.cin?.let { outputs[it] = Pt(distance - 2.0, 280.0 - 0.2) }
+        val wires = inputs.flatMap { (names, pos) ->
+            names.map { it to outputs[it]!! }
+                .sortedBy { (name, p) -> if (name in swap) outputs[swap.single { it != name }]!!.x else p.x }
+                .mapIndexed { index, out ->
+                    Wire(out.first, Pt(pos.x + 16.0 * index, pos.y), out.second)
+                }
+        }
+
+        if (swap.any { it in outputs }) {
+            val wiresAffected = wires.filter { it.name in swap }
+//            val pointsAffected = wiresAffected.map { it.input }.distinct()
+//                .also { check(it.size == 2) { "on swap $swap, wires affected: $wiresAffected, points $it" } }
+            wiresAffected.forEach { wire ->
+                wire.transitFrom = wire.output
+                wire.transitTo = wiresAffected.first { it.name != wire.name }.output
+            }
+
+            if (swapProgress in (0.0..1.0)) {
+                val changing = (swapProgress * wiresAffected.size).toInt().coerceAtMost(wiresAffected.size - 1)
+                val progress = swapProgress * wiresAffected.size - changing
+
+                val x0 = wiresAffected[changing].transitFrom!!.x
+                val x1 = wiresAffected[changing].transitTo!!.x
+                val y0 = wiresAffected[changing].transitFrom!!.y
+                val y1 = wiresAffected[changing].transitTo!!.y
+
+                val r = sqrt((x1 + x0).pow(2) / 4 + (y1 - y0).pow(2) / 4)
+                val dy = r * sin(progress * Math.PI) / 3
+
+                repeat(changing) { i ->
+                    val wire = wiresAffected[i]
+                    wire.output = wire.transitTo!!
+                }
+                val x = x0 + (x1 - x0) * progress - dy
+                val y = y0 + (y1 - y0) * progress + dy
+                wiresAffected[changing].output = Pt(x, y)
+                wiresAffected[changing].input = wiresAffected[changing].input.let { Pt(it.x - dy, it.y - dy) }
+            } else if (swapProgress > 1.0) {
+                wiresAffected.forEach { wire ->
+                    wire.output = wire.transitTo!!
+                }
             }
         }
         drawDigit(xBit, adder.a, 50.0, 0.0)
@@ -291,7 +171,7 @@ class Day24Video {
             moveTo(80.0, 75.0)
             lineTo(80.0, 80.0)
         }
-        drawCircuit(Point2D.Double(96.0, 190.0), Point2D.Double(80.0, 80.0)) // adder.a part2
+        drawCircuit(Pt(96.0, 190.0), Pt(80.0, 80.0)) // adder.a part2
         drawCircuit { // adder.b
             moveTo(80.0, 175.0)
             lineTo(80.0, 180.0)
@@ -301,37 +181,34 @@ class Day24Video {
             moveTo(80.0, 418.0)
             lineTo(80.0, 415.0)
         }
-        drawCircuit(Point2D.Double(zx, 390.0), Point2D.Double(80.0, 415.0)) // adder.sum part 2
+        drawCircuit(Pt(zx, 390.0), Pt(80.0, 415.0)) // adder.sum part 2
         if (adder.cout == "z45") {
             drawCircuit { // adder.cout
                 moveTo(80.0 - distance, 418.0)
                 lineTo(80.0 - distance, 415.0)
             }
-            drawCircuit(
-                Point2D.Double(zx - distance, 395.0),
-                Point2D.Double(80.0 - distance, 415.0)
-            ) // adder.sum part 2
+//            drawCircuit(
+//                Pt(zx - distance, 395.0),
+//                Pt(80.0 - distance, 415.0)
+//            ) // adder.sum part 2
         }
         gates.forEach { (gate, pos) -> drawGate(gate, pos.x, pos.y) }
-        inputs.flatMap { (names, pos) ->
-            names.map { it to outputs[it]!! }
-                .sortedBy { it.second.x }
-                .mapIndexed { index, out -> Point2D.Double(pos.x + 16.0 * index, pos.y) to out }
-        }.groupBy { it.second }.mapValues { (_, list) -> list.map { it.first } }
-            .forEach { (to, froms) ->
-                froms.forEach { from ->
-                    drawCircuit(
-                        from,
-                        to.second,
-                        to.first == swap.getOrNull(1) || to.first == swap.getOrNull(0) && swapProgress < 0.5
-                    )
+        wires.groupBy { it.name }.values
+            .forEach { group ->
+                group.forEach { (name, from, to) ->
+                    val isError = name in swap
+                    val errorIntensity = when {
+                        isError && swapProgress < 0.0 -> swapProgress * 2 + 1.0
+                        isError && swapProgress > 1.0 -> 1.0 - (swapProgress - 1.0) * 2
+                        isError -> 1.0
+                        else -> 0.0
+                    }
+                    drawCircuit(from, to, isError, errorIntensity)
                 }
-                if (froms.size > 1) {
-                    val xs = (froms.map { it.x } + to.second.x).sorted().drop(1).dropLast(1)
-                    xs.forEach { x -> drawConnect(x, to.second.y) }
-                }
-                if (to.first in swap) {
-                    drawConnect(to.second.x, to.second.y)
+                if (group.size > 1) {
+                    val to = group.first().output
+                    val xs = (group.map { (_, from, _) -> from.x } + to.x).sorted().drop(1).dropLast(1)
+                    xs.forEach { x -> drawConnect(x, to.y) }
                 }
             }
     }
@@ -351,7 +228,7 @@ class Day24Video {
         draw(gatePath)
         draw(Line2D.Double(4.0, 0.0, 4.0, 7.0))
         draw(Line2D.Double(20.0, 0.0, 20.0, 7.0))
-        draw(Line2D.Double(12.0, 34.0, 12.0, if (x > 60) 40.0 else if (x > 30) 42.0 else 44.0))
+        draw(Line2D.Double(12.0, 34.0, 12.0, if (x > 60) 40.0 else if (x > 30) 45.0 else 49.0))
         transform(tr.createInverse())
     }
 
@@ -378,29 +255,34 @@ class Day24Video {
         lineTo(0.0, 7.0)
     }
 
-    private fun Graphics2D.drawCircuit(isError: Boolean = false, pathOp: Path2D.Double.() -> Unit) {
+    private fun Graphics2D.drawCircuit(
+        isError: Boolean = false,
+        errorIntensity: Double = 0.0,
+        pathOp: Path2D.Double.() -> Unit
+    ) {
         val path = Path2D.Double().apply(pathOp)
-        color = bgColor
+        color = if (isError) errorColor.withAlpha((200 * errorIntensity).toInt()) else bgColor
         stroke = BasicStroke(3f)
         draw(path)
-        color = if (isError) errorColor else fgColor
         stroke = BasicStroke(1f)
+        color = fgColor
         draw(path)
+        if (isError) {
+            color = errorColor.withAlpha((255 * errorIntensity).toInt())
+            draw(path)
+        }
     }
 
     private fun Graphics2D.drawConnect(x: Double, y: Double) {
         fill(Ellipse2D.Double(x - 3, y - 3, 6.0, 6.0))
     }
 
-    private fun Graphics2D.drawCircuit(from: Point2D.Double, to: Point2D.Double, isError: Boolean = false) =
-        drawCircuit(isError) {
+    private fun Graphics2D.drawCircuit(from: Pt, to: Pt, isError: Boolean = false, errorIntensity: Double = 0.0) =
+        drawCircuit(isError, errorIntensity) {
             moveTo(from.x, from.y)
             val dy = to.y - from.y
             val dx = to.x - from.x
             val firstH = false
-//            val firstH = dy.absoluteValue < 10.1
-//            if (firstH) lineTo(to.x, from.y) else lineTo(from.x, to.y)
-//            lineTo(to.x, to.y)
             val c = 0.25
             if (firstH) curveTo(
                 from.x + (1 + c) * dx, from.y,
@@ -444,7 +326,7 @@ class Day24Video {
         if (error && str.length > 1) {
             color = errorColor
             fill(
-                font.createGlyphVector(fontRenderContext, "ERROR    ".padStart(str.length))
+                font.createGlyphVector(fontRenderContext, "Error    ".padStart(str.length))
                     .getOutline(x.toFloat(), y.toFloat() + 70)
             )
         }

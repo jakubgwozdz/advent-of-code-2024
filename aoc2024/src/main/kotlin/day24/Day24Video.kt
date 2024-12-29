@@ -11,7 +11,6 @@ import java.awt.geom.Arc2D
 import java.awt.geom.Ellipse2D
 import java.awt.geom.Line2D
 import java.awt.geom.Path2D
-import java.awt.geom.Point2D
 import java.awt.geom.Rectangle2D
 import java.awt.image.BufferedImage
 import kotlin.math.pow
@@ -52,9 +51,8 @@ class Day24Video {
         g.translate(distance * state.position / state.zoom, 0.0)
 
         g.color = fgColor
-        state.adders.indices.forEach { i ->
-//            if (i in (state.position.roundToInt() - 7..state.position.roundToInt() + 6)) {
-            val adder = state.adders[i]
+        state.addersWithSwaps.indices.forEach { i ->
+            val (adder, swap) = state.addersWithSwaps[i]
             val xBit = state.x shr i and 1L
             val yBit = state.y shr i and 1L
             val zBit = state.z shr i and 1L
@@ -62,7 +60,7 @@ class Day24Video {
             val error = zBit != (state.x + state.y) shr i and 1L
             g.drawAdder(
                 adder, xBit, yBit, zBit, cBit, error,
-                if (state.adderToFix == adder) state.swap else emptyList(),
+                if (state.adderToFix == adder) swap else emptyList(),
                 state.swapProgress
             )
 //            }

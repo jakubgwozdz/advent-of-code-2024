@@ -23,12 +23,12 @@ private const val LAST_POS = 45.0
 private const val SLEEP = 8L
 
 data class AnimState(
-    val adders: List<Adder> = emptyList(),
+    val addersWithSwaps: List<Pair<Adder, List<String>>> = emptyList(),
     val x: Long = Random.nextLong(),
     val y: Long = Random.nextLong(),
     val z: Long = Random.nextLong(),
     val adderToFix: Adder? = null,
-    val swap: List<String> = emptyList(),
+//    val swap: List<String> = emptyList(),
     val swapProgress: Double = 0.0,
     val position: Double = INIT_POS,
     val zoom: Double = MAX_ZOOM,
@@ -37,7 +37,7 @@ data class AnimState(
 fun main() {
     val input = parse(readAllText("local/day24_input.txt"))
 
-    val adders = setUpAdders(input)
+    val addersWithSwaps = setUpAdders(input).map { it to fixFullAdder(it) }
 //    val x = Random.nextBits(30).toLong() shl 15 or Random.nextBits(15).toLong()
 //    val y = Random.nextBits(30).toLong() shl 15 or Random.nextBits(15).toLong()
 //    val z = adders.calculate(x, y)
@@ -53,7 +53,7 @@ fun main() {
 //    println("diff:     ${diff.toString(2).padStart(46, '0').replace("0", " ").replace("1", "^")}")
 
 
-    val anim = AtomicReference(AnimState(adders))
+    val anim = AtomicReference(AnimState(addersWithSwaps))
 
     display(
         anim,
@@ -82,8 +82,7 @@ fun main() {
         sleep(500)
 
         val stops = (setOf(FIRST_POS to (null to emptyList<String>()), LAST_POS to (null to emptyList())) +
-                adders.mapIndexed { i, v -> i.toDouble() to v }.drop(1)
-                    .map { (i, adder) -> i to (adder to fixFullAdder(adder)) }
+                addersWithSwaps.mapIndexed { i, v -> i.toDouble() to v }
                     .filter { (_, v) -> v.second.isNotEmpty() })
             .sortedBy { (i, _) -> i }.zipWithNext()
             .map { (a, b) -> a.first to b.first to b.second }
@@ -103,10 +102,10 @@ fun main() {
             }
             val (current, swap) = adderWithSwap
             if (current != null && swap.isNotEmpty()) {
-                println("Fixing full adder")
+                println("Fixing full adder $current with swap $swap")
                 var fixing = true
                 animSpeed.set(FIX_SPEED)
-                anim.updateAndGet { state -> state.copy(swap = swap, swapProgress = -0.5, adderToFix = current) }
+                anim.updateAndGet { state -> state.copy(swapProgress = -0.5, adderToFix = current) }
                 while (fixing) {
                     anim.updateAndGet { state ->
                         val swapProgress = (state.swapProgress + animSpeed.get()).coerceAtMost(1.5)
@@ -118,8 +117,8 @@ fun main() {
                 }
                 anim.updateAndGet { state ->
                     state.copy(
-                        adders = state.adders.map { adder ->
-                            adder.takeIf { it != current } ?: with(current) {
+                        addersWithSwaps = state.addersWithSwaps.map { (adder, swap) ->
+                            (adder.takeIf { it != current } ?: with(current) {
                                 copy(
                                     and1 = and1?.replaceOutput(swap),
                                     xor1 = xor1?.replaceOutput(swap),
@@ -127,10 +126,9 @@ fun main() {
                                     xor2 = xor2?.replaceOutput(swap),
                                     or1 = or1?.replaceOutput(swap),
                                 )
-                            }
+                            }) to swap
                         },
-                        z = state.adders.calculate(state.x, state.y),
-                        swap = emptyList(),
+                        z = state.addersWithSwaps.map { it.first }.calculate(state.x, state.y),
                         swapProgress = 0.0,
                         adderToFix = null,
                     )
@@ -159,7 +157,7 @@ fun main() {
             anim.updateAndGet {
                 val x = Random.nextBits(30).toLong() shl 15 or Random.nextBits(15).toLong()
                 val y = Random.nextBits(30).toLong() shl 15 or Random.nextBits(15).toLong()
-                it.copy(x = x, y = y, z = it.adders.calculate(x, y))
+                it.copy(x = x, y = y, z = it.addersWithSwaps.map { it.first }.calculate(x, y))
             }
             sleep(1000)
         }

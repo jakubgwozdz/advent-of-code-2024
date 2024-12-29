@@ -179,35 +179,6 @@ fun main() {
     }
 }
 
-private fun scroll(state: AnimState, animSpeed: AtomicReference<Double>): AnimState? {
-    val current = state.adders.getOrNull(state.position.toInt())
-    val swap = state.swap.takeIf { it.isNotEmpty() }
-        ?: current?.takeIf { it.cin != null }?.let { fixFullAdder(it) }
-        ?: emptyList()
-    return if (swap.isEmpty()) {
-        state//.copy(position = state.position + 0.01)
-    } else if (state.swapProgress < 1) {
-        state.copy(swapProgress = state.swapProgress + 0.001, swap = swap)
-    } else {
-        state.copy(
-            adders = state.adders.map { adder ->
-                adder.takeIf { it != current } ?: with(current!!) {
-                    copy(
-                        and1 = and1?.replaceOutput(swap),
-                        xor1 = xor1?.replaceOutput(swap),
-                        and2 = and2?.replaceOutput(swap),
-                        xor2 = xor2?.replaceOutput(swap),
-                        or1 = or1?.replaceOutput(swap),
-                    )
-                }
-            },
-            z = state.adders.calculate(state.x, state.y),
-            swap = emptyList(),
-            swapProgress = 0.0,
-        )
-    }
-}
-
 fun Pair<Gate, String>.replaceOutput(swap: List<String>) =
     if (second !in swap) this else first to swap.single { it != second }
 
@@ -463,13 +434,20 @@ class Day24Video {
             font.createGlyphVector(fontRenderContext, str.map { '8' }.joinToString(""))
                 .getOutline(x.toFloat() + 1, y.toFloat() + 70)
         )
-        val c = if (error) errorColor else correctColor
-        color = c.withAlpha(80)
+        val c = if (error) (if (str.length == 1) errorColor else correctColor.withAlpha(40)) else correctColor
+        color = c.withAlpha(c.alpha * 80 / 256)
         val outline =
             font.createGlyphVector(fontRenderContext, str).getOutline(x.toFloat() + 1, y.toFloat() + 70)
         fill(outline)
         color = c
         draw(outline)
+        if (error && str.length > 1) {
+            color = errorColor
+            fill(
+                font.createGlyphVector(fontRenderContext, "ERROR    ".padStart(str.length))
+                    .getOutline(x.toFloat(), y.toFloat() + 70)
+            )
+        }
     }
 }
 

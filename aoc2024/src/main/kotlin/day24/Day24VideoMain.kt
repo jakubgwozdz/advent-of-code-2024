@@ -117,16 +117,17 @@ fun main() {
                 }
                 anim.updateAndGet { state ->
                     state.copy(
-                        addersWithSwaps = state.addersWithSwaps.map { (adder, swap) ->
-                            (adder.takeIf { it != current } ?: with(current) {
-                                copy(
-                                    and1 = and1?.replaceOutput(swap),
-                                    xor1 = xor1?.replaceOutput(swap),
-                                    and2 = and2?.replaceOutput(swap),
-                                    xor2 = xor2?.replaceOutput(swap),
-                                    or1 = or1?.replaceOutput(swap),
-                                )
-                            }) to swap
+                        addersWithSwaps = state.addersWithSwaps.map { it ->
+                            it.takeIf { it.first != current }
+                                ?: (with(current) {
+                                    copy(
+                                        and1 = and1?.replaceOutput(swap),
+                                        xor1 = xor1?.replaceOutput(swap),
+                                        and2 = and2?.replaceOutput(swap),
+                                        xor2 = xor2?.replaceOutput(swap),
+                                        or1 = or1?.replaceOutput(swap),
+                                    )
+                                } to emptyList())
                         },
                         z = state.addersWithSwaps.map { it.first }.calculate(state.x, state.y),
                         swapProgress = 0.0,

@@ -60,8 +60,9 @@ class Day24Video {
             val error = zBit != (state.x + state.y) shr i and 1L
             g.drawAdder(
                 adder, xBit, yBit, zBit, cBit, error,
-                if (state.adderToFix == adder) swap else emptyList(),
-                state.swapProgress
+//                if (state.adderToFix == adder) swap else emptyList(),
+                swap,
+                if (state.adderToFix == adder) state.swapProgress else -0.5
             )
 //            }
 

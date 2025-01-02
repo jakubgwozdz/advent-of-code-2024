@@ -37,11 +37,13 @@ class Day24Video {
         g.color = bgColor
         g.fillRect(0, 0, image.width, image.height)
 
+        g.translate(-50.0, -(state.zoom - 1) * 30)
         g.drawDigits(state.x.toString().padStart(14), 210.0, 540.0, false)
         g.drawDigits(state.y.toString().padStart(14), 210.0, 620.0, false)
         g.drawDigits("+", 160.0, 620.0, false)
         g.draw(Line2D.Double(190.0, 710.0, 710.0, 710.0))
         g.drawDigits(state.z.toString().padStart(14), 210.0, 715.0, state.z != state.x + state.y)
+        g.translate(50.0, (state.zoom - 1) * 30)
 
 
 //        g.translate(600.0 + distance * state.position.coerceAtMost(41.7), 40.0)
@@ -60,11 +62,9 @@ class Day24Video {
             val error = zBit != (state.x + state.y) shr i and 1L
             g.drawAdder(
                 adder, xBit, yBit, zBit, cBit, error,
-//                if (state.adderToFix == adder) swap else emptyList(),
                 swap,
                 if (state.adderToFix == adder) state.swapProgress else -0.5
             )
-//            }
 
             g.translate(-distance, 0.0)
         }
@@ -127,7 +127,7 @@ class Day24Video {
         }
 
         if (swap.any { it in outputs }) {
-            val wiresAffected = wires.filter { it.name in swap }
+            val wiresAffected = wires.filter { it.name in swap }.reversed()
 //            val pointsAffected = wiresAffected.map { it.input }.distinct()
 //                .also { check(it.size == 2) { "on swap $swap, wires affected: $wiresAffected, points $it" } }
             wiresAffected.forEach { wire ->
@@ -186,10 +186,6 @@ class Day24Video {
                 moveTo(80.0 - distance, 418.0)
                 lineTo(80.0 - distance, 415.0)
             }
-//            drawCircuit(
-//                Pt(zx - distance, 395.0),
-//                Pt(80.0 - distance, 415.0)
-//            ) // adder.sum part 2
         }
         gates.forEach { (gate, pos) -> drawGate(gate, pos.x, pos.y) }
         wires.groupBy { it.name }.values

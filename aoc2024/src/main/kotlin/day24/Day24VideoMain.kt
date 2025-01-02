@@ -20,7 +20,7 @@ private const val SCROOL_SPEED = 0.05
 private const val FIX_SPEED = 0.002
 private const val FIRST_POS = 0.0
 private const val LAST_POS = 45.0
-private const val SLEEP = 8L
+private const val SLEEP = 4L
 
 data class AnimState(
     val addersWithSwaps: List<Pair<Adder, List<String>>> = emptyList(),
@@ -65,7 +65,7 @@ fun main() {
 
     thread {
         val animSpeed = AtomicReference(0.0)
-//        sleep(10000)
+        sleep(10000)
         println("Zooming in")
         var zooming = true
         animSpeed.set(MIN_SPEED)
@@ -110,6 +110,9 @@ fun main() {
                     anim.updateAndGet { state ->
                         val swapProgress = (state.swapProgress + animSpeed.get()).coerceAtMost(1.5)
                         fixing = swapProgress < 1.5
+                        if (swapProgress > 1) {
+                            animSpeed.updateAndGet { it * 1.5 }
+                        }
 //                        animSpeed.set((sin(swapProgress * PI) * FIX_SPEED).coerceAtLeast(MIN_SPEED))
                         state.copy(swapProgress = swapProgress)
                     }
